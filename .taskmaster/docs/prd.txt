@@ -1,0 +1,990 @@
+# Jellos — Task Master PRD v0.3
+
+## Project Overview
+
+Jellos is a development workflow automation platform that streamlines the entire development lifecycle from issue creation to deployment. The system operates on a local-first architecture, leveraging filesystem, Git, and LLM CLI tools directly while seamlessly integrating with external tools like GitHub, Linear, and CI/CD systems.
+
+**Target Users**: Experienced developers and small teams
+**Core Value**: Local-first workflow with direct integration to development tools
+**Platform**: Web UI + Local TypeScript/Node server with SQLite database
+
+## Technical Stack
+
+- **Frontend**: React (Next.js or Vite) + TypeScript, virtual scrolling for diffs, SSE for logs
+- **Backend**: Node.js (Fastify) + TypeScript, event bus architecture, adapter registry pattern
+- **Database**: Prisma ORM + SQLite (`$APPDATA/jellos/db.sqlite`)
+- **Git Operations**: CLI-first approach using child_process
+- **Deployment**: Local mode (single user), Kubernetes for team deployments (M3)
+
+## Architecture Principles
+
+- **Provider Registry Pattern**: Pluggable adapters for issue trackers, VCS, CI/CD, and LLM agents
+- **Capability-Based Design**: Each provider declares capabilities with versioned contracts (v1alpha→v1→v2)
+- **Event-Driven**: Core event bus for state transitions and integration hooks
+- **Error Isolation**: Circuit breaker patterns, fallback mechanisms
+- **Configuration Separation**: `.jellos.yml` for project config, environment variables for secrets
+
+## Core Features & Requirements
+
+### 1. Project Management System
+
+**Requirements**:
+- Local directory-based project initialization and configuration
+- Project metadata storage (name, path, default branch, connected services)
+- Project-level settings via `.jellos.yml` configuration file
+- Multi-project support with project switching capability
+- Project health status monitoring (Git status, agent availability, integration health)
+
+**Data Model**:
+- Project entity: id, name, localPath, defaultBranch, createdAt, updatedAt
+- Project settings: VCS config, issue tracker config, CI config, agent config
+- Indexes: unique localPath, projectId for related entities
+
+**API Endpoints**:
+- `POST /projects` - Create/initialize project
+- `GET /projects` - List all projects
+- `GET /projects/:id` - Get project details
+- `PATCH /projects/:id` - Update project settings
+- `DELETE /projects/:id` - Remove project (soft delete)
+
+### 2. Navigation & Left Navigation Bar (LNB)
+
+**Requirements**:
+- **Project-Centric Structure**: Projects as top-level navigation items
+- Each project contains: Issues, Board, Pull Requests, Diff, Deployments, Code Agents
+- **Code Agents Sub-Tree**: Display detected LLM CLI tools under each project
+- Agent status badges: Healthy/Degraded/Missing with version and path tooltips
+- Quick project switching with keyboard shortcuts
+- Global Code Agents section (read-only) showing system-wide detected agents
+- Collapsible sections with state persistence
+
+**UI Components**:
+- ProjectNavigationTree component with recursive rendering
+- AgentStatusBadge component with health indicators
+- ProjectSwitcher dropdown with recent projects
+- SearchableNavigation for quick access
+
+**State Management**:
+- Current active project in global state
+- Navigation expansion state in local storage
+- Agent discovery cache per project (10-minute TTL)
+
+### 3. Code Agent Discovery & Management
+
+**Core Requirements**:
+- **Multi-Source Discovery**: Detect agents from `.jellos.yml`, PATH scan, and user registration
+- **Health Checking**: Validate agent executability with `--version` or `--help` commands
+- **Version Detection**: Extract and display agent version information
+- **Priority Resolution**: Project-defined agents override global/auto-detected ones
+- **Caching Strategy**: 10-minute TTL cache with manual refresh capability
+- **Status Monitoring**: Real-time health status (healthy/degraded/missing)
+
+**Configuration Schema** (`.jellos.yml`):
+```yaml
+agents:
+  - id: claude-code
+    label: "Claude Code"
+    cmd: "claude-code"
+    args: ["--mode", "fix"]
+    env:
+      ANTHROPIC_API_KEY: "${secret:ANTHROPIC_API_KEY}"
+    enabled: true
+  - id: custom-agent
+    label: "Custom Agent"
+    cmd: "/path/to/custom-agent"
+    args: []
+    enabled: false
+```
+
+**Discovery Pipeline**:
+1. Parse `.jellos.yml` agents section
+2. Scan PATH for known binary patterns (claude*, anthropic*, openai*, etc.)
+3. Execute health check with timeout (5 seconds)
+4. Merge results with project definition taking precedence
+5. Cache results with TTL
+
+**Data Model**:
+- CodeAgentRuntime: id, projectId (nullable), label, cmd, args[], envMask[]
+- Health fields: version, path, health status, lastChecked
+- Configuration: enabled, discoveredAt, updatedAt
+- Unique index: (projectId, id)
+
+**API Endpoints**:
+- `GET /projects/:id/agents` - List project-scoped agents (merged with global)
+- `POST /projects/:id/agents/refresh` - Force re-discovery
+- `PATCH /projects/:id/agents/:agentId` - Toggle enable/disable, override config
+- `GET /agents/global` - List globally detected agents
+
+**Implementation Requirements**:
+- Command execution with timeout and error handling
+- Version string parsing with regex patterns
+- Environment variable resolution including secret references
+- PATH scanning with pattern matching
+- Result caching with TTL expiration
+- Manual cache invalidation on refresh
+
+### 4. Issue Management System
+
+**Internal Issues**:
+- Create, read, update issues within Jellos
+- Issue fields: title, description, status, priority, assignee, labels, created/updated timestamps
+- Issue-to-worktree mapping (one issue can have multiple attempts)
+- Issue status: TODO, IN_PROGRESS, IN_REVIEW, MERGED, DEPLOYED, REJECTED, CANCELED
+
+**External Issue Integration (Linear)**:
+- **MVP (M0)**: Read-only integration - fetch and link Linear issues
+- Connect Linear workspace via API token
+- Display Linear issues with read-only status
+- Link Jellos workflow to Linear issue (reference only)
+- Show Linear issue details: title, description, status, assignee, labels
+- **M1**: Bidirectional sync - update Linear status based on Jellos workflow state
+
+**Data Model**:
+- Issue entity: id, projectId, title, description, status, priority
+- ExternalIssueLink: issueId, provider (linear/github), externalId, externalUrl, syncEnabled
+- IssueComment: id, issueId, content, author, createdAt
+
+**API Endpoints**:
+- `POST /projects/:id/issues` - Create internal issue
+- `GET /projects/:id/issues` - List issues with filters
+- `GET /issues/:id` - Get issue details
+- `PATCH /issues/:id` - Update issue
+- `POST /issues/:id/link-external` - Link to Linear/GitHub issue
+- `GET /issues/:id/external-status` - Fetch current external issue status
+
+**Linear Integration Requirements**:
+- OAuth or API token authentication
+- GraphQL API client for Linear
+- Issue field mapping (Jellos ↔ Linear)
+- Webhook support for real-time updates (M1)
+- Rate limiting and error handling
+
+### 5. Git Worktree Management
+
+**Core Requirements**:
+- **Isolation**: Each issue gets its own worktree to avoid conflicts
+- **Branch Naming**: Convention-based naming (e.g., `jellos/issue-{id}-{slug}`)
+- **Base Branch**: Always create from latest `origin/<default-branch>` (fetch before create)
+- **Lifecycle Management**: Create → Work → Commit → Push → Cleanup
+- **Guard Rails**: Prevent worktree creation if PR already exists for branch
+- **Cleanup**: Safe removal after PR merge or rejection
+
+**Worktree Operations**:
+1. `git fetch --prune origin` - Update remote refs
+2. `git worktree add` - Create isolated working directory
+3. `git commit` - Commit agent changes
+4. `git push -u origin <branch>` - Push to remote
+5. `git worktree remove` - Clean up after merge/reject
+
+**Worktree Tracking**:
+- Store worktree metadata: path, branch, issueId, createdAt, status
+- Monitor worktree health (directory exists, branch exists)
+- Auto-cleanup stale worktrees (configurable threshold)
+
+**Data Model**:
+- Worktree entity: id, projectId, issueId, path, branch, status, createdAt
+- Status: ACTIVE, STALE, REMOVED
+- Indexes: (projectId, issueId), unique branch name
+
+**Safety Guards**:
+- Check for uncommitted changes before operations
+- Validate worktree path doesn't conflict
+- Ensure clean state before creation
+- Lock mechanism to prevent concurrent operations on same worktree
+
+**API Endpoints**:
+- `POST /projects/:id/worktrees` - Create worktree for issue
+- `GET /projects/:id/worktrees` - List active worktrees
+- `GET /worktrees/:id` - Get worktree details
+- `DELETE /worktrees/:id` - Remove worktree (with safety checks)
+- `POST /worktrees/:id/cleanup` - Force cleanup stale worktree
+
+### 6. Code Agent Execution Engine
+
+**Core Requirements**:
+- **CLI Adapter Pattern**: Abstract interface for different LLM CLI tools
+- **Streaming Output**: Real-time stdout/stderr streaming via SSE
+- **Timeout Handling**: Configurable execution timeout with graceful termination
+- **Artifact Collection**: Capture modified files, summaries, and execution metadata
+- **Environment Isolation**: Execute in worktree with proper environment variables
+- **Retry Logic**: Configurable retry on transient failures
+
+**Execution Flow**:
+1. Validate agent availability and health
+2. Prepare worktree and environment
+3. Execute agent CLI with prompt/instructions
+4. Stream output to client via SSE
+5. Monitor for completion or timeout
+6. Collect artifacts (changed files, commit message, summary)
+7. Commit changes with structured commit message
+8. Push to remote branch
+
+**CLI Adapter Interface**:
+```typescript
+interface CodeAgentAdapter {
+  execute(context: ExecutionContext): AsyncIterator<ExecutionEvent>
+  validateHealth(): Promise<HealthStatus>
+  getCapabilities(): AgentCapabilities
+  parseOutput(stdout: string): Artifact[]
+}
+```
+
+**Execution Context**:
+- worktreePath: string
+- prompt: string
+- agentConfig: AgentConfiguration
+- environment: Record<string, string>
+- timeout: number
+
+**Execution Events** (streamed via SSE):
+- STARTED: Execution began
+- OUTPUT: stdout/stderr chunk
+- PROGRESS: Progress indicator from agent
+- ARTIFACT: File changed/created
+- COMPLETED: Success with summary
+- FAILED: Error with details
+- TIMEOUT: Execution exceeded timeout
+
+**Data Model**:
+- AgentExecution: id, issueId, worktreeId, agentId, prompt, status, startedAt, completedAt
+- ExecutionLog: id, executionId, timestamp, level, message
+- ExecutionArtifact: id, executionId, type (file/summary), path, content
+
+**API Endpoints**:
+- `POST /issues/:id/execute` - Start agent execution
+- `GET /executions/:id/stream` - SSE endpoint for execution logs
+- `GET /executions/:id` - Get execution details
+- `GET /executions/:id/artifacts` - List execution artifacts
+- `POST /executions/:id/cancel` - Cancel running execution
+
+**Implementation Requirements**:
+- Node.js child_process spawn with streaming
+- SSE connection management
+- Timeout implementation with SIGTERM/SIGKILL
+- File change detection (git diff)
+- Commit message generation from agent output
+- Error recovery and retry logic
+
+### 7. Pull Request Management
+
+**Core Requirements**:
+- **Duplicate Prevention**: Check if PR already exists for branch before creation
+- **Auto-Creation**: Generate PR from worktree changes via GitHub API
+- **PR Metadata**: Link PR to issue, include agent execution summary
+- **Status Tracking**: Monitor PR status (open, merged, closed)
+- **Merge Operations**: Support merge/squash/rebase strategies
+- **Branch Cleanup**: Delete remote branch after merge
+
+**PR Creation Flow**:
+1. Validate changes exist in worktree
+2. Check for existing open PR on branch
+3. Generate PR title from issue title
+4. Generate PR body: issue link, agent prompt, execution summary, changed files
+5. Create PR via GitHub API
+6. Store PR metadata and link to issue
+7. Transition issue status to IN_REVIEW
+
+**PR Template** (Generated Body):
+```markdown
+## Issue
+Closes #[issue-id]
+Related to [Linear issue link]
+
+## Changes
+[Agent execution summary]
+
+## Modified Files
+- path/to/file1.ts
+- path/to/file2.ts
+
+## Agent Execution
+- Agent: Claude Code v1.2.3
+- Prompt: [original prompt]
+- Execution time: 45s
+
+---
+*Auto-generated by Jellos*
+```
+
+**Data Model**:
+- PullRequest: id, issueId, provider (github), externalId, number, url, status, createdAt
+- Status: OPEN, MERGED, CLOSED, DRAFT
+- Metadata: title, body, baseBranch, headBranch, mergeable
+
+**GitHub Integration**:
+- Octokit client for GitHub REST API
+- Authentication via personal access token or GitHub App
+- Webhook support for PR status updates
+- Branch protection rule awareness
+
+**API Endpoints**:
+- `POST /issues/:id/pull-requests` - Create PR from worktree
+- `GET /pull-requests` - List PRs with filters
+- `GET /pull-requests/:id` - Get PR details
+- `POST /pull-requests/:id/merge` - Merge PR with strategy
+- `POST /pull-requests/:id/close` - Close PR without merge
+- `GET /pull-requests/:id/status` - Fetch current PR status from GitHub
+
+**Merge Strategies**:
+- Merge commit (default)
+- Squash and merge
+- Rebase and merge
+
+### 8. Diff Viewer
+
+**Core Requirements**:
+- **High Performance**: Handle large diffs (100 files, 5000 lines) with ≤2s load time
+- **Virtual Scrolling**: Render only visible portions of diff
+- **Syntax Highlighting**: Language-aware code highlighting
+- **Side-by-Side View**: Old vs new with synchronized scrolling
+- **Unified View**: Traditional unified diff format
+- **Collapsible Files**: Expand/collapse individual file diffs
+- **Search**: Find text within diffs
+- **Permalink**: Direct links to specific files/lines
+
+**Diff Data Structure**:
+```typescript
+interface DiffData {
+  files: DiffFile[]
+  summary: DiffSummary
+}
+
+interface DiffFile {
+  path: string
+  oldPath?: string // for renames
+  status: 'added' | 'modified' | 'deleted' | 'renamed'
+  hunks: DiffHunk[]
+  language: string
+}
+
+interface DiffHunk {
+  oldStart: number
+  oldLines: number
+  newStart: number
+  newLines: number
+  lines: DiffLine[]
+}
+
+interface DiffLine {
+  type: 'context' | 'addition' | 'deletion'
+  oldLineNumber?: number
+  newLineNumber?: number
+  content: string
+}
+```
+
+**UI Components**:
+- VirtualizedDiffViewer (main container)
+- DiffFileTree (file list with expand/collapse)
+- DiffHunkRenderer (individual hunk with line numbers)
+- SyntaxHighlighter (language-aware highlighting)
+- DiffSearchBar (find within diffs)
+
+**Performance Optimizations**:
+- Virtual scrolling with react-window or react-virtuoso
+- Lazy loading file contents
+- Memoization of rendered components
+- Web Workers for syntax highlighting
+- Diff computation caching
+
+**API Endpoints**:
+- `GET /pull-requests/:id/diff` - Get PR diff data
+- `GET /worktrees/:id/diff` - Get worktree diff vs base
+- `GET /executions/:id/diff` - Get execution artifact diff
+
+**Link-out Integration**:
+- Link to GitHub PR diff view
+- Link to specific file on GitHub
+- Link to line numbers on GitHub
+
+### 9. Kanban Board
+
+**Core Requirements**:
+- **Column-Based Layout**: Columns for TODO, IN_PROGRESS, IN_REVIEW, MERGED, DEPLOYED
+- **Drag-and-Drop**: Move issues between columns to update status
+- **Card Design**: Display issue title, assignee, labels, linked PR/Linear issue
+- **Filtering**: Filter by project, assignee, label, date range
+- **View Modes**: All projects view vs single project view
+- **Real-time Updates**: WebSocket or polling for status changes
+- **Swim Lanes**: Optional grouping by priority or assignee
+
+**Kanban Card Contents**:
+- Issue ID and title
+- Status badge
+- Assignee avatar
+- Label chips
+- External issue link (Linear/GitHub icon)
+- PR link (if exists)
+- Last updated timestamp
+- Quick actions (view, edit, execute agent)
+
+**Board Layout**:
+```
++----------+-------------+------------+--------+----------+
+| TODO     | IN_PROGRESS | IN_REVIEW  | MERGED | DEPLOYED |
++----------+-------------+------------+--------+----------+
+| Issue #1 | Issue #3    | Issue #5   | ...    | ...      |
+| Issue #2 | Issue #4    |            |        |          |
++----------+-------------+------------+--------+----------+
+```
+
+**Data Requirements**:
+- Issue status and metadata
+- PR status (for IN_REVIEW column)
+- Deployment status (for DEPLOYED column)
+- Real-time status updates
+
+**UI Components**:
+- KanbanBoard (container)
+- KanbanColumn (status column)
+- KanbanCard (issue card with drag handle)
+- CardMenu (quick actions dropdown)
+- BoardFilters (filter controls)
+
+**State Management**:
+- Drag-and-drop state with react-beautiful-dnd or dnd-kit
+- Optimistic updates on status change
+- WebSocket connection for real-time updates
+- Filter state persistence
+
+**API Endpoints**:
+- `GET /projects/:id/board` - Get board data for project
+- `GET /board` - Get board data for all projects
+- `PATCH /issues/:id/status` - Update issue status (from drag-drop)
+- `WS /board/updates` - WebSocket for real-time updates
+
+### 10. State Management System
+
+**State Transition Flow**:
+```
+TODO → IN_PROGRESS → IN_REVIEW → MERGED → DEPLOYED
+         ↓ (failure)      ↓ (reject)
+        TODO            REJECTED → (restart) TODO | (cancel) CANCELED
+```
+
+**State Definitions**:
+- **TODO**: Issue created, ready to work
+- **IN_PROGRESS**: Agent execution started or in progress
+- **IN_REVIEW**: PR created, awaiting review
+- **MERGED**: PR merged into base branch
+- **DEPLOYED**: Changes deployed to environment (tracked via CI)
+- **REJECTED**: PR rejected/closed without merge
+- **CANCELED**: Issue canceled, no further work
+
+**Transition Rules**:
+- TODO → IN_PROGRESS: Agent execution starts
+- IN_PROGRESS → IN_REVIEW: PR created successfully
+- IN_PROGRESS → TODO: Agent execution failed
+- IN_REVIEW → MERGED: PR merged via GitHub
+- IN_REVIEW → REJECTED: PR closed without merge
+- MERGED → DEPLOYED: CI deployment successful
+- REJECTED → TODO: User restarts issue
+- REJECTED → CANCELED: User cancels issue
+- Any state → CANCELED: User cancels issue
+
+**Event-Driven Architecture**:
+- IssueStatusChanged event
+- PullRequestStatusChanged event
+- DeploymentStatusChanged event
+- AgentExecutionCompleted event
+- AgentExecutionFailed event
+
+**Data Model**:
+- IssueStateHistory: id, issueId, fromStatus, toStatus, reason, timestamp, userId
+- StateTransitionRule: fromStatus, toStatus, conditions, actions
+
+**API Endpoints**:
+- `POST /issues/:id/transition` - Trigger status transition with validation
+- `GET /issues/:id/history` - Get status transition history
+- `GET /state-transitions` - Get valid transitions from current state
+
+**Validation Logic**:
+- Check if transition is allowed from current state
+- Validate prerequisites (e.g., PR must exist for IN_REVIEW)
+- Execute side effects (e.g., close PR on CANCELED)
+
+### 11. Link-Out Integration
+
+**Requirements**:
+- Quick access to external tools from Jellos UI
+- Open GitHub PR, commits, files in browser
+- Open Linear issue in Linear app/web
+- Open CI pipeline in Jenkins/GitHub Actions
+- Open deployment environment URLs
+- Context-aware links (e.g., specific line in GitHub)
+
+**Link Types**:
+- **GitHub**: PR URL, commit URL, file URL, blame URL, diff URL
+- **Linear**: Issue URL, workspace URL
+- **CI**: Pipeline URL, job URL, logs URL
+- **Deployment**: Preview URL, production URL
+
+**UI Integration**:
+- External link icons next to relevant items
+- Keyboard shortcut to open external link (e.g., `Cmd+Shift+O`)
+- Tooltip showing full URL on hover
+- Option to copy URL to clipboard
+
+**Implementation**:
+- URL builder utility for each provider
+- Deep linking support where available
+- URL template configuration in `.jellos.yml`
+
+**Configuration Example**:
+```yaml
+links:
+  github:
+    baseUrl: "https://github.com/org/repo"
+    prTemplate: "{baseUrl}/pull/{number}"
+    fileTemplate: "{baseUrl}/blob/{branch}/{path}#L{line}"
+  linear:
+    baseUrl: "https://linear.app/workspace"
+    issueTemplate: "{baseUrl}/issue/{id}"
+  ci:
+    jenkins:
+      baseUrl: "https://jenkins.company.com"
+      pipelineTemplate: "{baseUrl}/job/{jobName}/{buildNumber}"
+```
+
+### 12. CI/CD Integration (M2)
+
+**Requirements** (Post-MVP):
+- Trigger deployments from Jellos UI
+- Monitor CI pipeline status
+- Display build logs and artifacts
+- Support multiple CI providers (Jenkins, GitHub Actions)
+- Preview deployments for review branches
+- Deployment history tracking
+
+**Jenkins Integration**:
+- Trigger build via Jenkins REST API
+- Poll job status
+- Fetch build logs
+- Display build artifacts
+
+**GitHub Actions Integration**:
+- Trigger workflow via GitHub API
+- Monitor workflow runs via webhooks
+- Display workflow logs
+- Show action annotations
+
+**Preview Deployments**:
+- Automatic preview deployment on PR creation
+- Preview URL displayed in PR and Jellos UI
+- Cleanup preview on PR merge/close
+
+**Data Model**:
+- Deployment: id, issueId, prId, environment, status, url, triggeredAt, completedAt
+- DeploymentLog: id, deploymentId, timestamp, message
+- Environment: id, projectId, name, url, ciProvider, config
+
+**API Endpoints**:
+- `POST /pull-requests/:id/deploy` - Trigger deployment
+- `GET /deployments` - List deployments
+- `GET /deployments/:id` - Get deployment details
+- `GET /deployments/:id/logs` - Stream deployment logs
+
+### 13. Workflow Orchestration
+
+**Re-Execution Flow** (M1):
+1. User reviews diff and requests changes
+2. User provides additional prompt/feedback
+3. System creates new execution in same worktree
+4. Agent re-runs with accumulated context (original + feedback)
+5. New commits added to same branch
+6. PR automatically updated (force push or new commits)
+7. Diff viewer shows updated changes
+
+**Rejection Flow**:
+1. User/reviewer rejects PR
+2. Issue transitions to REJECTED state
+3. User chooses: Restart (→ TODO) or Cancel (→ CANCELED)
+4. Restart: Create new worktree from fresh base
+5. Cancel: Close PR, clean up worktree, mark issue done
+
+**Data Requirements**:
+- Execution history per issue (multiple attempts)
+- Prompt/feedback accumulation
+- Worktree reuse vs recreation logic
+- PR update strategy (force push vs append)
+
+### 14. Security & Privacy
+
+**Local Mode Security**:
+- Bind server to localhost only
+- No external network access required
+- File system access limited to configured project directories
+- Git credentials managed by system Git credential helper
+
+**Secret Management**:
+- Environment variables for API keys
+- Keychain integration for macOS/Windows
+- `.env` file with `.gitignore` exclusion
+- Secret references in config: `${secret:KEY_NAME}`
+
+**Data Privacy**:
+- All data stored locally in SQLite
+- No telemetry by default
+- Optional anonymous usage statistics (opt-in)
+- Prompt/code content never sent to Jellos servers (no Jellos servers exist in local mode)
+
+**API Token Security**:
+- Store API tokens encrypted at rest
+- Mask tokens in logs and UI
+- Validate token permissions on connection
+- Revocation support
+
+### 15. Performance Requirements
+
+**Response Times**:
+- UI navigation: <100ms
+- Issue list load: <500ms
+- Diff viewer load: <2s (for 100 files, 5000 lines)
+- Agent execution start: <1s
+- PR creation: <3s
+
+**Scalability**:
+- Support 100+ projects per installation
+- Handle 1000+ issues per project
+- Diff viewer handles up to 500 files
+- Agent execution handles up to 1-hour timeout
+
+**Resource Constraints**:
+- SQLite database <100MB for typical usage
+- Worktree disk usage monitored and limited
+- Memory usage <500MB for server process
+- CPU usage limited during agent execution
+
+### 16. Error Handling & Resilience
+
+**Error Categories**:
+- Git operation failures (network, merge conflicts)
+- Agent execution failures (timeout, crash, invalid output)
+- External API failures (GitHub, Linear rate limits)
+- File system errors (permissions, disk full)
+- Configuration errors (invalid .jellos.yml)
+
+**Recovery Strategies**:
+- Retry with exponential backoff for transient failures
+- Circuit breaker for external API calls
+- Graceful degradation (show cached data if API unavailable)
+- User-friendly error messages with suggested actions
+- Automatic cleanup of failed worktrees
+
+**Logging & Monitoring**:
+- Structured logging with levels (debug, info, warn, error)
+- Execution audit trail for debugging
+- Error aggregation and reporting
+- Health check endpoints
+
+### 17. Testing Requirements
+
+**Unit Tests**:
+- Core business logic (state transitions, validations)
+- Git operations (worktree management, PR creation)
+- Agent adapters (CLI execution, output parsing)
+- API endpoints (request/response validation)
+
+**Integration Tests**:
+- End-to-end workflow (issue → execution → PR)
+- External API mocking (GitHub, Linear)
+- Database transactions and rollback
+- Agent discovery and health checking
+
+**E2E Tests**:
+- Full user workflows via UI
+- Multi-project scenarios
+- Error recovery flows
+- Performance benchmarks
+
+**Test Coverage Targets**:
+- Unit tests: >80% code coverage
+- Integration tests: Critical paths covered
+- E2E tests: All major user journeys
+
+## Roadmap & Milestones
+
+### M0 — MVP (2 weeks)
+
+**Goal**: Core workflow operational end-to-end
+
+**Deliverables**:
+1. Project initialization and configuration
+2. Project-centric LNB with Code Agents sub-tree
+3. Agent discovery system (read-only, local + .jellos.yml)
+4. Internal issue creation and listing
+5. Linear integration (read-only, link issues)
+6. Git worktree creation and management
+7. Agent execution engine with streaming output
+8. PR creation via GitHub API with duplicate prevention
+9. Diff viewer with syntax highlighting
+10. Kanban board with drag-drop status updates
+11. Link-out to GitHub/Linear
+12. Basic error handling and logging
+
+**Technical Milestones**:
+- Database schema and migrations complete
+- Core API endpoints implemented
+- Agent adapter interface defined
+- Git operations library complete
+- Frontend components for all views
+- Basic authentication (local mode only)
+
+### M1 — Enhanced Workflow (2-3 weeks)
+
+**Goal**: Bidirectional sync and re-execution capabilities
+
+**Deliverables**:
+1. Linear status synchronization (write back to Linear)
+2. Linear webhook integration for real-time updates
+3. Re-execution UX with prompt accumulation
+4. Rejection flow with restart/cancel options
+5. Merge UI with strategy selection (merge/squash/rebase)
+6. Agent enable/disable and override API
+7. Multi-project board view
+8. Advanced filtering and search
+9. Execution history and artifact browsing
+10. Enhanced error recovery flows
+
+**Technical Milestones**:
+- Webhook receiver for Linear/GitHub
+- Event-driven state synchronization
+- Worktree reuse logic
+- PR update strategies
+- Agent configuration override system
+
+### M2 — Deployment & CI (2 weeks)
+
+**Goal**: Complete deployment lifecycle automation
+
+**Deliverables**:
+1. Jenkins integration (trigger builds, monitor status)
+2. GitHub Actions integration (trigger workflows)
+3. Preview deployment for review branches
+4. Deployment history and status tracking
+5. Deployment logs viewer
+6. Environment management (staging, production)
+7. Deployment approval workflows
+8. Rollback capabilities
+9. Build artifact display
+10. Performance monitoring dashboard
+
+**Technical Milestones**:
+- Jenkins REST API client
+- GitHub Actions API client
+- Deployment state machine
+- Log streaming infrastructure
+- Environment configuration management
+
+### M3 — Team & Enterprise (Post-M2)
+
+**Goal**: Multi-user and team collaboration features
+
+**Deliverables**:
+1. User authentication and authorization
+2. Team workspaces
+3. Role-based access control
+4. Audit logging
+5. Kubernetes deployment for team mode
+6. Shared project configurations
+7. Team activity feed
+8. Notification system
+9. Usage analytics dashboard
+10. Admin console
+
+**Technical Milestones**:
+- Authentication system (OAuth, SSO)
+- Multi-tenant architecture
+- Kubernetes manifests
+- Horizontal scaling support
+- Database migrations for multi-user
+
+## Success Metrics (KPIs)
+
+**Efficiency Metrics**:
+- TODO → PR creation lead time (median) < 5 minutes
+- Issue → Merged lead time (median) < 1 day
+- Agent execution success rate > 80%
+- PR merge rate (vs. rejection) > 70%
+
+**Usage Metrics**:
+- Daily active projects
+- Issues created per day
+- Agent executions per day
+- PR creation rate
+
+**Quality Metrics**:
+- Re-execution rate per issue < 2 attempts
+- IN_REVIEW → MERGED conversion rate > 70%
+- System uptime > 99.5%
+- Error rate < 5%
+
+**Performance Metrics**:
+- P95 API response time < 1s
+- Diff viewer load time P95 < 3s
+- Agent execution start time P95 < 2s
+
+## Non-Functional Requirements
+
+**Compatibility**:
+- Operating Systems: macOS 11+, Windows 10+, Linux (Ubuntu 20.04+)
+- Node.js: 20.x or higher
+- Git: 2.40 or higher
+- Browsers: Chrome 100+, Firefox 100+, Safari 15+, Edge 100+
+
+**Reliability**:
+- Graceful handling of network failures
+- Safe cleanup of partial operations
+- Atomic state transitions with rollback
+- Data integrity guarantees (ACID transactions)
+
+**Maintainability**:
+- TypeScript for type safety
+- ESLint and Prettier for code quality
+- Comprehensive inline documentation
+- Architectural Decision Records (ADRs)
+- Automated dependency updates
+
+**Observability**:
+- Structured logging with correlation IDs
+- Metrics collection (execution time, error rate)
+- Health check endpoints
+- Debug mode for troubleshooting
+
+**Accessibility**:
+- Keyboard navigation for all features
+- WCAG 2.1 Level AA compliance
+- Screen reader support
+- High contrast mode
+
+## Configuration Management
+
+**Global Configuration** (`~/.jellos/config.yml`):
+```yaml
+server:
+  port: 3042
+  host: "localhost"
+
+logging:
+  level: "info"
+  file: "~/.jellos/logs/server.log"
+
+telemetry:
+  enabled: false
+
+agents:
+  discoveryTimeout: 5000
+  executionTimeout: 3600000
+  cacheTTL: 600000
+```
+
+**Project Configuration** (`.jellos.yml`):
+```yaml
+project:
+  name: "my-project"
+  defaultBranch: "main"
+
+git:
+  remote: "origin"
+  worktreeBasePath: "../jellos-worktrees"
+
+agents:
+  - id: claude-code
+    label: "Claude Code"
+    cmd: "claude-code"
+    args: []
+    env:
+      ANTHROPIC_API_KEY: "${secret:ANTHROPIC_API_KEY}"
+    enabled: true
+
+integrations:
+  github:
+    owner: "myorg"
+    repo: "myrepo"
+    token: "${secret:GITHUB_TOKEN}"
+
+  linear:
+    teamId: "abc123"
+    apiKey: "${secret:LINEAR_API_KEY}"
+    syncEnabled: false  # true in M1
+
+  ci:
+    provider: "github-actions"
+    workflow: "deploy.yml"
+
+links:
+  github:
+    baseUrl: "https://github.com/myorg/myrepo"
+  linear:
+    baseUrl: "https://linear.app/myteam"
+```
+
+## Open Questions & Future Considerations
+
+**Agent Standardization**:
+- Define standard input/output format for agents?
+- Agent capability negotiation protocol?
+- Multi-agent orchestration (use multiple agents in sequence)?
+
+**Conflict Resolution**:
+- How to handle merge conflicts during worktree operations?
+- Should Jellos support conflict resolution UI?
+- Or delegate to external Git tools?
+
+**Resource Management**:
+- Automatic cleanup of old worktrees?
+- Disk space monitoring and alerts?
+- Concurrent execution limits per project?
+
+**Extensibility**:
+- Plugin system for custom integrations?
+- Custom state transitions?
+- User-defined automation rules?
+
+**Collaboration Features**:
+- Real-time collaboration on issue prompts?
+- Comments and discussions within Jellos?
+- Activity feed for team awareness?
+
+**AI Enhancements**:
+- Automatic prompt refinement based on past failures?
+- Suggested prompts based on issue description?
+- AI-powered code review before PR creation?
+
+## Appendix: Data Model Reference
+
+**Core Entities**:
+- Project
+- Issue
+- ExternalIssueLink
+- Worktree
+- CodeAgentRuntime
+- AgentExecution
+- ExecutionLog
+- ExecutionArtifact
+- PullRequest
+- Deployment
+- IssueStateHistory
+
+**Relationships**:
+- Project 1:N Issues
+- Issue 1:N Worktrees
+- Issue 1:N AgentExecutions
+- Issue 1:1 ExternalIssueLink
+- Issue 1:N PullRequests
+- Worktree 1:N AgentExecutions
+- AgentExecution 1:N ExecutionLogs
+- AgentExecution 1:N ExecutionArtifacts
+- PullRequest 1:N Deployments
+- Issue 1:N IssueStateHistory
+
+**Database Indexes**:
+- Issues: (projectId, status), (projectId, createdAt)
+- Worktrees: (projectId, issueId), unique (branch)
+- AgentExecutions: (issueId, createdAt), (status)
+- PullRequests: (issueId), unique (provider, externalId)
+- IssueStateHistory: (issueId, timestamp)
+
+---
+
+**End of PRD**

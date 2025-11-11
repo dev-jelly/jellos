@@ -1,0 +1,30 @@
+{
+  "name": "jellos",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Development workflow automation platform",
+  "engines": {
+    "node": ">=22.11.0",
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "test": "turbo test",
+    "format": "prettier --write \"**/*.{ts,tsx,md,json}\"",
+    "clean": "turbo clean && rm -rf node_modules"
+  },
+  "devDependencies": {
+    "@turbo/gen": "^2.3.3",
+    "prettier": "^3.4.2",
+    "turbo": "^2.3.3",
+    "typescript": "^5.7.2"
+  },
+  "volta": {
+    "node": "22.11.0",
+    "pnpm": "9.15.0"
+  },
+  "license": "MIT"
+}

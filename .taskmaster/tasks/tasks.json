@@ -1,0 +1,1083 @@
+{
+  "master": {
+    "tasks": [
+      {
+        "id": 1,
+        "title": "런타임/모노레포 초기화 및 환경 표준화",
+        "description": "PNPM 기반 모노레포를 구성해 Next.js 15 웹앱과 Fastify 5 API 런타임을 동시에 세팅한다.",
+        "details": "현재 저장소에는 Taskmaster 설정만 있으므로 `apps/web`(Next.js 15 App Router)과 `apps/api`(Fastify 5) 구조를 pnpm workspace로 생성하고 Turborepo/Nx 빌드 파이프라인, 공통 TypeScript 설정, eslint/prettier를 적용한다. Next.js 15의 Server Actions·React 19 지원·Turbopack Dev 모드를 기본 활성화해 폼 제출 및 실시간 로그 스트리밍 요구사항을 충족시킨다. Node 22 LTS(Jod) 이상을 `engines.node`에 고정하고 Volta/NVM 설정 및 lint-staged, commit-msg 훅을 배포 파이프라인에 맞춘다. citeturn0search0turn1search0\nPseudo-code:\n\\`\\`\\`bash\npnpm dlx create-next-app@latest apps/web --ts --use-pnpm --app\npnpm add -w fastify@5 @fastify/sse zod tsoa tsx\npnpm exec nx g @nx/node:app api --framework=fastify\n\\`\\`\\`\n산출물: 루트 `tsconfig.base.json`, `packages/config/eslint`, Husky 훅, 공통 env 템플릿.",
+        "testStrategy": "`node -v`>=22.11을 CI에서 확인하고 `pnpm lint`, `pnpm test`, `pnpm exec nx graph`로 워크스페이스 의존성 무결성을 검증한다.",
+        "priority": "medium",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "PNPM workspace 구조 초기화 및 루트 패키지 설정",
+            "description": "PNPM workspace를 생성하고 루트 package.json에 워크스페이스 설정을 추가하며 기본 스크립트를 구성한다",
+            "dependencies": [],
+            "details": "루트 디렉토리에 pnpm-workspace.yaml 파일을 생성하여 apps/*, packages/* 경로를 워크스페이스로 정의하고, 루트 package.json에 Node 22 엔진 제약과 packageManager 필드를 추가한다. Volta 설정 파일(.volta/volta.json)과 .nvmrc를 생성하여 Node 버전을 고정한다",
+            "status": "pending",
+            "testStrategy": "pnpm --version 실행으로 PNPM 설치 확인, node --version으로 Node 22 이상 확인, pnpm workspace list로 워크스페이스 구조 검증"
+          },
+          {
+            "id": 2,
+            "title": "Next.js 15 웹앱 생성 및 초기 설정",
+            "description": "apps/web 디렉토리에 Next.js 15 앱을 App Router 방식으로 생성하고 React 19, Server Actions, Turbopack을 활성화한다",
+            "dependencies": [
+              1
+            ],
+            "details": "pnpm dlx create-next-app@latest apps/web --typescript --use-pnpm --app --tailwind --src-dir 명령으로 앱을 생성하고 next.config.ts에서 experimental.turbo를 활성화한다. React 19 RC를 설치하고 Server Actions를 위한 기본 설정을 추가한다. app/layout.tsx와 app/page.tsx 기본 구조를 확립한다",
+            "status": "pending",
+            "testStrategy": "pnpm --filter web dev로 개발 서버 실행 확인, http://localhost:3000 접속 테스트, Server Action 예제 작성 후 동작 검증"
+          },
+          {
+            "id": 3,
+            "title": "Fastify 5 API 서버 구조 생성 및 설정",
+            "description": "apps/api 디렉토리에 Fastify 5 기반 API 서버를 구성하고 기본 플러그인과 라우트를 설정한다",
+            "dependencies": [
+              1
+            ],
+            "details": "apps/api 디렉토리를 생성하고 package.json에 fastify@5, @fastify/cors, @fastify/helmet, @fastify/sse, pino 등을 추가한다. src/server.ts에 기본 Fastify 인스턴스를 구성하고 src/plugins, src/routes 디렉토리 구조를 생성한다. tsx를 사용한 개발 모드 실행 스크립트를 추가한다",
+            "status": "pending",
+            "testStrategy": "pnpm --filter api dev로 서버 실행 확인, http://localhost:3001/health 엔드포인트 응답 테스트, Fastify inject로 기본 라우트 테스트"
+          },
+          {
+            "id": 4,
+            "title": "Turborepo 파이프라인 구성 및 빌드 최적화",
+            "description": "Turborepo를 설치하고 turbo.json으로 빌드, 테스트, 린트 파이프라인을 구성하여 캐싱과 병렬 실행을 최적화한다",
+            "dependencies": [
+              2,
+              3
+            ],
+            "details": "루트에 turbo.json을 생성하여 dev, build, test, lint 태스크의 의존성과 캐시 설정을 정의한다. outputs와 inputs를 명시하여 캐시 효율을 높이고 --filter 옵션으로 선택적 실행을 지원한다. 루트 package.json에 turbo 스크립트를 추가하고 .turbo 캐시 디렉토리를 .gitignore에 추가한다",
+            "status": "pending",
+            "testStrategy": "pnpm turbo build로 전체 빌드 실행, 두 번째 실행 시 캐시 적중 확인, turbo run build --graph로 태스크 그래프 검증"
+          },
+          {
+            "id": 5,
+            "title": "TypeScript 공통 설정 및 경로 매핑 구성",
+            "description": "루트 tsconfig.base.json을 생성하고 각 앱의 tsconfig.json이 이를 상속하도록 구성하며 경로 별칭을 설정한다",
+            "dependencies": [
+              2,
+              3
+            ],
+            "details": "루트에 tsconfig.base.json을 생성하여 compilerOptions를 정의하고 strict: true, esModuleInterop: true 등 공통 설정을 적용한다. packages/shared 패키지를 생성하여 공통 타입과 유틸리티를 관리하고 @jellos/* 경로 별칭을 설정한다. 각 앱의 tsconfig.json에서 extends로 베이스 설정을 상속받도록 구성한다",
+            "status": "pending",
+            "testStrategy": "tsc --noEmit으로 타입 체크 실행, 경로 별칭 import 테스트, IDE에서 자동완성과 타입 추론 확인"
+          },
+          {
+            "id": 6,
+            "title": "ESLint/Prettier 표준화 및 공유 설정 패키지 생성",
+            "description": "packages/eslint-config에 공유 ESLint 설정을 생성하고 Prettier와 통합하여 코드 스타일을 표준화한다",
+            "dependencies": [
+              5
+            ],
+            "details": "packages/eslint-config 패키지를 생성하여 @jellos/eslint-config로 발행하고 Next.js, Node.js 환경별 설정을 제공한다. eslint-config-next, @typescript-eslint/parser, eslint-plugin-prettier를 설정하고 .prettierrc에 printWidth: 100, singleQuote: true 등을 정의한다. 각 앱에서 extends: ['@jellos/eslint-config']로 사용한다",
+            "status": "pending",
+            "testStrategy": "pnpm lint로 전체 프로젝트 린트 실행, pnpm format으로 Prettier 적용 확인, 의도적 린트 에러 생성 후 검출 테스트"
+          },
+          {
+            "id": 7,
+            "title": "Git hooks 설정 및 커밋 규칙 구성",
+            "description": "Husky를 설치하여 pre-commit과 commit-msg 훅을 설정하고 lint-staged와 commitlint를 통합한다",
+            "dependencies": [
+              6
+            ],
+            "details": "pnpm add -D -w husky lint-staged @commitlint/cli @commitlint/config-conventional을 실행하고 husky install로 Git 훅을 초기화한다. .husky/pre-commit에 lint-staged를 실행하고 .husky/commit-msg에 commitlint를 설정한다. .lintstagedrc.json에 *.{ts,tsx}: ['eslint --fix', 'prettier --write'] 규칙을 정의한다",
+            "status": "pending",
+            "testStrategy": "잘못된 형식의 커밋 메시지로 커밋 시도하여 거부 확인, 린트 에러가 있는 파일 커밋 시도하여 자동 수정 확인"
+          },
+          {
+            "id": 8,
+            "title": "환경 변수 템플릿 및 설정 파일 생성",
+            "description": ".env.example 파일과 환경별 설정을 생성하고 dotenv 로딩 전략을 구현한다",
+            "dependencies": [
+              2,
+              3
+            ],
+            "details": "루트에 .env.example을 생성하여 DATABASE_URL, LINEAR_API_KEY, GITHUB_TOKEN 등 필수 환경 변수를 문서화한다. packages/config에 환경 설정 로더를 구현하여 zod 스키마로 런타임 검증을 수행한다. apps/*/src/config.ts에서 공통 설정 로더를 사용하고 process.env 타입을 확장한다",
+            "status": "pending",
+            "testStrategy": "환경 변수 누락 시 명확한 에러 메시지 출력 확인, zod 스키마 검증 테스트, 개발/프로덕션 환경 분기 동작 확인"
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "title": "Prisma·SQLite 스키마 및 WAL2 성능 구성",
+        "description": "프로젝트/이슈/워크트리/에이전트 등 핵심 모델을 Prisma로 정의하고 SQLite WAL2 설정을 적용한다.",
+        "details": "Prisma 5.x 기반 스키마를 작성하되 Prisma 7에서 예고된 확장성(제너레이터 API 안정화, views GA)을 고려해 `schema.prisma`를 모듈화하고 마이그레이션 파이프라인(Nx target)에 통합한다. SQLite 저널을 WAL2로 전환해 장기 실행 리더와 빈번한 쓰기 사이에서 로그 파일 증폭을 방지하고, `.env`의 DB 경로를 `$APPDATA/jellos/db.sqlite`로 고정한다. citeturn3search3turn4search0\nPseudo-code:\n\\`\\`\\`sql\n-- prisma/migrations/.../migration.sql\nPRAGMA journal_mode=delete;\nPRAGMA journal_mode=wal2;\n\\`\\`\\`\n\\`\\`\\`prisma\nmodel Project { id String @id default(cuid()) name String localPath String @unique ... }\nmodel CodeAgentRuntime { ... @@unique([projectId, externalId]) }\n\\`\\`\\`\n마이그레이션 후 `scripts/db/seed.ts`에서 샘플 프로젝트/에이전트/워크트리 데이터를 주입한다.",
+        "testStrategy": "`pnpm prisma migrate dev` 실행 후 `PRAGMA journal_mode;`가 `wal2`인지 확인하고, Vitest 기반 리포지토리 단위 테스트에서 Prisma Client를 모킹하지 않고 in-memory SQLite를 사용해 CRUD 시나리오를 검증한다.",
+        "priority": "medium",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Prisma 초기 설정 및 SQLite 데이터베이스 경로 구성",
+            "description": "Prisma 5.x를 프로젝트에 설치하고 SQLite 데이터베이스 경로를 $APPDATA/jellos/db.sqlite로 설정한다.",
+            "dependencies": [],
+            "details": "pnpm add -D prisma@5 @prisma/client를 실행하여 Prisma를 설치하고, .env 파일에 DATABASE_URL=\"file:$APPDATA/jellos/db.sqlite\"를 설정한다. prisma init 명령으로 초기 구성 파일을 생성하고 datasource를 SQLite로 설정한다.",
+            "status": "pending",
+            "testStrategy": "Prisma CLI 설치 확인 및 .env 파일의 DATABASE_URL 경로가 올바르게 설정되었는지 검증"
+          },
+          {
+            "id": 2,
+            "title": "핵심 도메인 모델 스키마 정의",
+            "description": "Project, Issue, Worktree, CodeAgentRuntime 등 핵심 엔티티의 Prisma 스키마를 작성한다.",
+            "dependencies": [
+              1
+            ],
+            "details": "schema.prisma 파일에 Project 모델(id, name, localPath 등), Issue 모델, Worktree 모델, CodeAgentRuntime 모델을 정의한다. 각 모델 간의 관계를 @relation으로 설정하고 @@unique, @unique 제약조건을 적절히 배치한다. Prisma 7 호환성을 위해 스키마를 모듈화 가능한 구조로 작성한다.",
+            "status": "pending",
+            "testStrategy": "prisma validate 명령으로 스키마 유효성을 검증하고 prisma format으로 포맷팅 확인"
+          },
+          {
+            "id": 3,
+            "title": "SQLite WAL2 모드 마이그레이션 설정",
+            "description": "SQLite 저널 모드를 WAL2로 전환하는 마이그레이션을 작성하고 적용한다.",
+            "dependencies": [
+              2
+            ],
+            "details": "prisma migrate dev --name init_wal2 명령으로 초기 마이그레이션을 생성한 후, 생성된 migration.sql 파일에 PRAGMA journal_mode=delete; PRAGMA journal_mode=wal2; 명령을 추가한다. 장기 실행 리더와 빈번한 쓰기 작업 간의 성능 최적화를 위한 WAL2 설정을 적용한다.",
+            "status": "pending",
+            "testStrategy": "마이그레이션 실행 후 sqlite3 CLI로 PRAGMA journal_mode; 쿼리 실행하여 wal2 반환 확인"
+          },
+          {
+            "id": 4,
+            "title": "Nx 타겟으로 마이그레이션 파이프라인 통합",
+            "description": "Prisma 마이그레이션을 Nx 빌드 파이프라인에 통합하여 자동화한다.",
+            "dependencies": [
+              3
+            ],
+            "details": "apps/api/project.json 또는 nx.json에 db:migrate, db:generate, db:push 등의 Nx 타겟을 정의한다. 각 타겟은 prisma migrate deploy, prisma generate, prisma db push 명령을 실행하도록 구성한다. 의존성 체인을 설정하여 빌드 전 마이그레이션이 실행되도록 한다.",
+            "status": "pending",
+            "testStrategy": "pnpm exec nx run api:db:migrate 명령 실행 및 타겟 체인 동작 확인"
+          },
+          {
+            "id": 5,
+            "title": "시드 데이터 스크립트 작성",
+            "description": "샘플 프로젝트, 에이전트, 워크트리 데이터를 주입하는 시드 스크립트를 구현한다.",
+            "dependencies": [
+              4
+            ],
+            "details": "scripts/db/seed.ts 파일을 작성하여 Prisma Client를 사용한 샘플 데이터 생성 로직을 구현한다. 개발 환경용 테스트 프로젝트, 에이전트 런타임 설정, 워크트리 예제를 포함한다. package.json에 prisma db seed 명령을 추가하고 prisma.seed 설정을 구성한다.",
+            "status": "pending",
+            "testStrategy": "pnpm prisma db seed 실행 후 데이터베이스 쿼리로 시드 데이터 존재 확인"
+          },
+          {
+            "id": 6,
+            "title": "Prisma Client 생성 및 리포지토리 패턴 구현",
+            "description": "Prisma Client를 생성하고 타입 안전한 리포지토리 패턴을 구현한다.",
+            "dependencies": [
+              5
+            ],
+            "details": "prisma generate로 클라이언트를 생성하고 libs/database/src/prisma.service.ts에 싱글톤 패턴으로 Prisma Client를 래핑한다. 각 도메인별 리포지토리 클래스(ProjectRepository, IssueRepository 등)를 구현하여 CRUD 작업을 추상화한다. in-memory SQLite를 사용한 테스트 환경 설정도 포함한다.",
+            "status": "pending",
+            "testStrategy": "Vitest로 각 리포지토리의 CRUD 메서드를 in-memory SQLite에서 테스트"
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "프로젝트 관리 API (CRUD·헬스·설정)",
+        "description": "Fastify 5 기반으로 프로젝트 CRUD, 설정 업데이트, 상태 진단 엔드포인트를 구현한다.",
+        "details": "`/projects` REST 리소스를 정의하고, 서비스 계층에서 Prisma `Project`와 설정 엔터티를 조합해 `.jellos.yml` 파싱 결과와 DB 레코드를 머지한다. Fastify JSON 스키마(Zod)로 입력을 검증하고, Git/에이전트 헬스체크 결과를 이벤트 버스에 게시해 UI에서 실시간 상태 뱃지를 표시할 수 있도록 SSE 토픽을 예약한다.\nPseudo-code:\n\\`\\`\\`ts\nfastify.route({\n  method: 'POST', url: '/projects',\n  schema: { body: projectSchema },\n  handler: async (req, rep) => {\n    const project = await projectService.create(req.body);\n    await bus.publish({ type: 'ProjectCreated', projectId: project.id });\n    return rep.code(201).send(project);\n  }\n});\n\\`\\`\\`",
+        "testStrategy": "Fastify inject를 사용한 계약 테스트로 HTTP 201/409/404 흐름을 검증하고, Playwright API snapshot으로 멱등 PATCH 동작과 상태 필터를 확인한다.",
+        "priority": "medium",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Fastify 5 라우트 구조 및 플러그인 설계",
+            "description": "프로젝트 관리 API를 위한 Fastify 5 라우트 구조를 설계하고 필요한 플러그인(cors, helmet, rate-limit)을 설정한다.",
+            "dependencies": [],
+            "details": "apps/api/src/routes/projects 디렉토리 구조를 생성하고, Fastify autoload 플러그인으로 라우트를 자동 등록한다. @fastify/cors, @fastify/helmet, @fastify/rate-limit 플러그인을 설정하고, 프로젝트 API 전용 prefix('/api/v1/projects')를 적용한다. 공통 에러 핸들러와 요청 로깅 미들웨어를 구성한다.",
+            "status": "pending",
+            "testStrategy": "Fastify inject로 라우트 등록 여부와 플러그인 적용을 검증하고, 각 미들웨어가 올바르게 동작하는지 단위 테스트로 확인한다."
+          },
+          {
+            "id": 2,
+            "title": "프로젝트 CRUD 엔드포인트 구현",
+            "description": "CREATE, READ, UPDATE, DELETE 작업을 수행하는 RESTful 엔드포인트를 구현하고 Prisma와 연동한다.",
+            "dependencies": [
+              1
+            ],
+            "details": "POST /projects (생성), GET /projects (목록 조회), GET /projects/:id (단일 조회), PATCH /projects/:id (부분 업데이트), DELETE /projects/:id (삭제) 핸들러를 구현한다. 페이지네이션, 정렬, 필터링을 위한 쿼리 파라미터를 처리하고, Prisma Client를 통해 데이터베이스 작업을 수행한다. 409 Conflict, 404 Not Found 등 적절한 HTTP 상태 코드를 반환한다.",
+            "status": "pending",
+            "testStrategy": "Fastify inject를 사용해 각 엔드포인트의 성공/실패 시나리오를 테스트하고, 멱등성과 동시성 처리를 검증한다."
+          },
+          {
+            "id": 3,
+            "title": "Zod 스키마 검증 및 DTO 정의",
+            "description": "요청/응답 데이터 검증을 위한 Zod 스키마를 정의하고 Fastify의 JSON Schema와 통합한다.",
+            "dependencies": [],
+            "details": "zod-to-json-schema 패키지를 사용해 Zod 스키마를 Fastify JSON Schema로 변환한다. CreateProjectDto, UpdateProjectDto, ProjectResponseDto 등 DTO를 정의하고, .jellos.yml 파싱 결과와 DB 데이터를 머지하는 변환 로직을 구현한다. 입력 검증 실패 시 400 Bad Request와 함께 상세한 에러 메시지를 반환하도록 구성한다.",
+            "status": "pending",
+            "testStrategy": "유효/무효한 페이로드로 스키마 검증을 테스트하고, 에러 메시지 포맷과 내용이 올바른지 확인한다."
+          },
+          {
+            "id": 4,
+            "title": "프로젝트 서비스 계층 및 비즈니스 로직",
+            "description": "프로젝트 관리를 위한 서비스 계층을 구현하고 .jellos.yml 파싱, 캐싱, 트랜잭션 처리를 담당한다.",
+            "dependencies": [
+              2,
+              3
+            ],
+            "details": "ProjectService 클래스를 생성해 CRUD 로직을 캡슐화하고, yaml 패키지로 .jellos.yml 파일을 파싱한다. Redis나 메모리 캐시를 사용해 프로젝트 설정을 캐싱하고, Prisma 트랜잭션으로 복합 작업의 원자성을 보장한다. Git 저장소 상태 확인, 에이전트 설정 병합, 프로젝트 경로 유효성 검증 등 비즈니스 규칙을 구현한다.",
+            "status": "pending",
+            "testStrategy": "서비스 메서드를 단위 테스트하고, 트랜잭션 롤백과 캐시 무효화가 올바르게 동작하는지 통합 테스트로 검증한다."
+          },
+          {
+            "id": 5,
+            "title": "헬스체크 엔드포인트 및 이벤트 버스 통합",
+            "description": "시스템 상태 진단을 위한 헬스체크 엔드포인트를 구현하고 이벤트 버스와 SSE를 통해 실시간 상태를 전달한다.",
+            "dependencies": [
+              4
+            ],
+            "details": "GET /healthz (기본 헬스체크), GET /readyz (상세 준비 상태) 엔드포인트를 구현한다. Git 연결, 데이터베이스 접속, Linear API, 에이전트 상태를 체크하는 HealthCheckService를 작성한다. EventEmitter나 Redis Pub/Sub 기반 이벤트 버스를 구성하고, ProjectCreated, ProjectUpdated, HealthStatusChanged 이벤트를 발행한다. SSE 엔드포인트(/events)를 통해 클라이언트에 실시간 상태 업데이트를 스트리밍한다.",
+            "status": "pending",
+            "testStrategy": "각 헬스체크 컴포넌트를 모킹해 성공/실패 시나리오를 테스트하고, 이벤트 발행과 SSE 스트리밍이 정상 동작하는지 E2E 테스트로 확인한다."
+          }
+        ]
+      },
+      {
+        "id": 4,
+        "title": "프로젝트 중심 LNB·내비게이션 UI",
+        "description": "Next.js 15 클라이언트 컴포넌트로 프로젝트 트리, 글로벌 에이전트 섹션, 검색 가능한 내비를 만든다.",
+        "details": "`apps/web`에서 서버 컴포넌트로 프로젝트 리스트를 프리패치하고, 클라이언트 측에서는 `virtua`의 WindowVirtualizer를 이용해 많은 프로젝트/에이전트 트리를 부드럽게 스크롤한다(수평·수직 겸용 + Window scroll 지원). citeturn7search0\nPseudo-code:\n\\`\\`\\`tsx\nconst ProjectTree: FC = () => {\n  const virtualizer = useWindowVirtualizer({ count: projects.length, estimateSize: () => 48 });\n  return (\n    <nav>{virtualizer.getVirtualItems().map(item => (\n      <TreeRow key={item.key} style={{ transform: `translateY(${item.start}px)` }}>\n        <AgentBadges project={projects[item.index]} />\n      </TreeRow>\n    ))}</nav>\n  );\n};\n\\`\\`\\`\n로컬 스토리지로 섹션 펼침 상태를 Persist하고, 프로젝트 전환 단축키(Command Palette)와 글로벌 에이전트 read-only 섹션을 분리한다.",
+        "testStrategy": "Storybook 시각 테스트로 100+ 프로젝트에서도 60fps 스크롤이 유지되는지 `@storybook/testing-library`와 Lighthouse Performance를 함께 측정한다.",
+        "priority": "medium",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Next.js 15 서버 컴포넌트 구조 설정",
+            "description": "Next.js 15의 서버 컴포넌트 아키텍처를 설정하고 프로젝트 데이터 프리패치 로직을 구현한다.",
+            "dependencies": [],
+            "details": "apps/web에 서버 컴포넌트 기반 레이아웃을 구성하고, Prisma 클라이언트를 통해 프로젝트 리스트를 서버에서 프리패치한다. RSC 페이로드 최적화를 위해 필요한 필드만 선택적으로 쿼리하고, 서버 컴포넌트에서 클라이언트 컴포넌트로 props를 전달하는 경계를 명확히 정의한다.",
+            "status": "pending",
+            "testStrategy": "서버 컴포넌트 렌더링 성능을 Lighthouse로 측정하고, 프리패치된 데이터가 클라이언트 하이드레이션 시 정상 전달되는지 E2E 테스트로 검증한다."
+          },
+          {
+            "id": 2,
+            "title": "Virtua WindowVirtualizer 가상 스크롤 통합",
+            "description": "Virtua 라이브러리의 WindowVirtualizer를 활용해 대규모 프로젝트 리스트의 가상 스크롤링을 구현한다.",
+            "dependencies": [
+              1
+            ],
+            "details": "virtua 패키지를 설치하고 useWindowVirtualizer 훅을 사용해 프로젝트 트리의 가상 스크롤을 구현한다. estimateSize 콜백으로 각 항목의 높이를 48px로 설정하고, 수평 및 수직 스크롤을 동시에 지원하도록 구성한다. 스크롤 성능 최적화를 위해 debounce와 throttle을 적절히 적용한다.",
+            "status": "pending",
+            "testStrategy": "100개 이상의 프로젝트 항목에서 60fps 스크롤 유지 여부를 Chrome DevTools Performance 탭으로 측정하고, React Testing Library로 가상화된 DOM 요소가 올바르게 렌더링되는지 확인한다."
+          },
+          {
+            "id": 3,
+            "title": "프로젝트 트리 컴포넌트 구현",
+            "description": "계층 구조의 프로젝트 트리 UI 컴포넌트를 구현하고 펼침/접기 상태를 관리한다.",
+            "dependencies": [
+              2
+            ],
+            "details": "TreeRow 컴포넌트를 작성해 프로젝트 항목을 렌더링하고, 들여쓰기 레벨에 따른 패딩 조정을 구현한다. 폴더 아이콘과 프로젝트 아이콘을 구분하고, 선택된 프로젝트에 하이라이트 스타일을 적용한다. React.memo와 useMemo를 활용해 불필요한 리렌더링을 방지하고, 트리 노드의 펼침/접기 애니메이션을 CSS transition으로 구현한다.",
+            "status": "pending",
+            "testStrategy": "Storybook에서 다양한 깊이의 트리 구조를 시각적으로 테스트하고, 펼침/접기 상태 전환이 부드럽게 동작하는지 확인한다."
+          },
+          {
+            "id": 4,
+            "title": "에이전트 배지 시스템 개발",
+            "description": "프로젝트별 활성 에이전트를 시각적으로 표시하는 배지 컴포넌트 시스템을 구축한다.",
+            "dependencies": [
+              3
+            ],
+            "details": "AgentBadges 컴포넌트를 개발해 각 프로젝트에 연결된 에이전트를 컬러풀한 배지로 표시한다. 글로벌 에이전트와 로컬 에이전트를 구분하고, read-only 섹션을 별도로 분리한다. 배지에 툴팁을 추가해 에이전트 상태와 설명을 표시하고, 에이전트 타입별로 고유한 색상과 아이콘을 할당한다.",
+            "status": "pending",
+            "testStrategy": "다양한 에이전트 조합에 대한 스냅샷 테스트를 수행하고, 배지 호버 시 툴팁이 정상적으로 표시되는지 인터랙션 테스트를 진행한다."
+          },
+          {
+            "id": 5,
+            "title": "Command Palette 단축키 시스템",
+            "description": "프로젝트 전환과 검색을 위한 Command Palette 단축키 시스템을 구현한다.",
+            "dependencies": [
+              3,
+              4
+            ],
+            "details": "Cmd+K (또는 Ctrl+K) 단축키로 Command Palette를 활성화하고, 퍼지 검색 알고리즘으로 프로젝트를 빠르게 찾을 수 있도록 구현한다. 최근 사용한 프로젝트를 상단에 표시하고, 화살표 키로 네비게이션, Enter로 선택할 수 있도록 키보드 이벤트를 처리한다. 검색 결과를 실시간으로 업데이트하고, ESC 키로 팔레트를 닫을 수 있도록 한다.",
+            "status": "pending",
+            "testStrategy": "키보드 이벤트 시뮬레이션으로 단축키 동작을 테스트하고, 퍼지 검색 알고리즘의 정확도를 유닛 테스트로 검증한다."
+          },
+          {
+            "id": 6,
+            "title": "로컬 스토리지 상태 영속성 구현",
+            "description": "트리 펼침 상태와 사용자 설정을 로컬 스토리지에 저장하고 복원하는 로직을 구현한다.",
+            "dependencies": [
+              3,
+              5
+            ],
+            "details": "localStorage API를 활용해 트리 노드의 펼침/접기 상태를 JSON으로 직렬화해 저장한다. 페이지 새로고침 시 저장된 상태를 복원하고, 프로젝트 전환 히스토리를 관리한다. 스토리지 용량 제한을 고려해 LRU 캐시 전략을 적용하고, 상태 버전 관리를 통해 스키마 변경 시 마이그레이션을 처리한다.",
+            "status": "pending",
+            "testStrategy": "localStorage mock을 사용해 상태 저장/복원 로직을 테스트하고, 브라우저 새로고침 후에도 UI 상태가 유지되는지 E2E 테스트로 확인한다."
+          }
+        ]
+      },
+      {
+        "id": 5,
+        "title": "코드 에이전트 디스커버리·헬스 체크 파이프라인",
+        "description": "`.jellos.yml`·PATH·사용자 등록 정보를 통합해 에이전트 런타임을 커널 수준에서 발견·검증한다.",
+        "details": "`child_process.spawn`으로 `--version`/`--help`를 5초 타임아웃으로 실행할 때 `timeout`, `killSignal` 등을 명시해 stdout 버퍼 초과와 좀비 프로세스를 방지하고, Node Permission Model(`--permission`, `--allow-child-process`)을 적용해 워크트리 샌드박스를 보호한다. citeturn5search1turn3search1\nPseudo-code:\n\\`\\`\\`ts\nconst runHealthCheck = (cmd: string, args: string[]) =>\n  spawn(cmd, args, { timeout: 5000, killSignal: 'SIGTERM', env: resolvedEnv });\n\\`\\`\\`\nRedis-backed TTL 캐시(10분)와 수동 리프레시 엔드포인트(`/projects/:id/agents/refresh`)를 제공하고, 우선순위 규칙(프로젝트 정의 > 글로벌 설정 > 자동 감지)을 적용한다.",
+        "testStrategy": "모킹 없이 실제 CLI를 호출하는 통합 테스트를 워크플로우 디렉터리에서 실행하고, Permission Model이 미설정일 때 403을 반환하도록 회귀 테스트를 작성한다.",
+        "priority": "medium",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "에이전트 디스커버리 로직 구현",
+            "description": ".jellos.yml, PATH, 사용자 등록 정보를 통합하여 에이전트 런타임을 자동으로 발견하는 핵심 로직을 구현한다.",
+            "dependencies": [],
+            "details": "`.jellos.yml` 파일 파싱, 시스템 PATH 스캔, 사용자 홈 디렉터리 설정 파일 검색을 통해 사용 가능한 에이전트를 식별한다. 우선순위 규칙(프로젝트 정의 > 글로벌 설정 > 자동 감지)을 적용하여 에이전트 목록을 생성하고, 각 에이전트의 메타데이터(이름, 버전, 실행 경로, 설정)를 수집한다.",
+            "status": "pending",
+            "testStrategy": "단위 테스트로 .jellos.yml 파싱 로직과 우선순위 규칙을 검증하고, 다양한 설정 조합에 대한 테스트 케이스를 작성한다."
+          },
+          {
+            "id": 2,
+            "title": "child_process 안전 실행 래퍼 개발",
+            "description": "child_process.spawn을 안전하게 래핑하여 타임아웃, 버퍼 관리, 좀비 프로세스 방지를 구현한다.",
+            "dependencies": [],
+            "details": "spawn 실행 시 timeout(5000ms), killSignal('SIGTERM'), maxBuffer 옵션을 설정하고, stdout/stderr 스트림을 안전하게 처리한다. 프로세스가 타임아웃되거나 예외 종료 시 리소스를 정리하고, 좀비 프로세스 방지를 위한 시그널 핸들링을 구현한다. Promise 기반 인터페이스로 래핑하여 async/await 패턴을 지원한다.",
+            "status": "pending",
+            "testStrategy": "통합 테스트로 실제 CLI 명령 실행과 타임아웃 시나리오를 검증하고, 좀비 프로세스 생성 여부를 모니터링한다."
+          },
+          {
+            "id": 3,
+            "title": "Node Permission Model 보안 샌드박싱",
+            "description": "Node.js Permission Model을 적용하여 워크트리 샌드박스를 보호하고 최소 권한으로 실행한다.",
+            "dependencies": [
+              2
+            ],
+            "details": "Node.js 실행 시 --permission, --allow-child-process, --allow-read-fs 플래그를 동적으로 구성한다. 워크트리별 화이트리스트 경로를 설정하고, 네트워크 접근과 파일시스템 접근을 제한한다. Permission denied 에러 발생 시 명확한 에러 메시지와 권한 설정 가이드를 제공한다.",
+            "status": "pending",
+            "testStrategy": "권한이 없는 경로 접근 시 ERR_ACCESS_DENIED 발생을 확인하고, 샌드박스 외부 접근 시도를 차단하는지 검증한다."
+          },
+          {
+            "id": 4,
+            "title": "Redis 캐싱 레이어 구현",
+            "description": "Redis 기반 TTL 캐시를 구현하여 에이전트 헬스체크 결과를 10분간 캐싱한다.",
+            "dependencies": [
+              1,
+              2
+            ],
+            "details": "Redis 클라이언트를 설정하고 헬스체크 결과를 JSON 직렬화하여 저장한다. TTL 10분을 설정하고 캐시 키는 프로젝트 ID와 에이전트 식별자를 조합하여 생성한다. 캐시 미스 시 헬스체크를 실행하고 결과를 캐싱한다. Redis 연결 실패 시 graceful fallback으로 메모리 캐시를 사용한다.",
+            "status": "pending",
+            "testStrategy": "Redis mock을 사용한 단위 테스트와 TTL 만료 시나리오, 캐시 invalidation 로직을 검증한다."
+          },
+          {
+            "id": 5,
+            "title": "헬스체크 REST API 엔드포인트",
+            "description": "/projects/:id/agents 헬스체크 엔드포인트와 /projects/:id/agents/refresh 수동 리프레시 API를 구현한다.",
+            "dependencies": [
+              1,
+              4
+            ],
+            "details": "Fastify 라우터에 GET /projects/:id/agents 엔드포인트를 추가하여 캐싱된 에이전트 상태를 반환한다. POST /projects/:id/agents/refresh 엔드포인트로 캐시를 무효화하고 새로운 헬스체크를 트리거한다. 각 에이전트별 상태(healthy, unhealthy, unknown)와 메타데이터를 JSON으로 응답한다.",
+            "status": "pending",
+            "testStrategy": "API 통합 테스트로 엔드포인트 응답과 캐시 refresh 동작을 검증하고, 동시성 테스트를 수행한다."
+          },
+          {
+            "id": 6,
+            "title": "우선순위 규칙 엔진 구현",
+            "description": "프로젝트 정의, 글로벌 설정, 자동 감지 순서로 에이전트를 선택하는 우선순위 규칙 엔진을 개발한다.",
+            "dependencies": [
+              1
+            ],
+            "details": "에이전트 설정 소스별 우선순위를 정의하고, 충돌 해결 로직을 구현한다. 프로젝트별 .jellos.yml 설정이 최우선이고, 사용자 홈 디렉터리의 글로벌 설정이 다음, PATH 자동 감지가 마지막 우선순위다. 동일한 에이전트가 여러 소스에서 발견될 때 병합 규칙을 적용한다.",
+            "status": "pending",
+            "testStrategy": "다양한 설정 조합에 대한 단위 테스트와 우선순위 충돌 시나리오를 검증한다."
+          },
+          {
+            "id": 7,
+            "title": "자동 감지 시스템 개발",
+            "description": "시스템 PATH와 표준 경로에서 에이전트 바이너리를 자동으로 감지하는 시스템을 구현한다.",
+            "dependencies": [
+              1
+            ],
+            "details": "시스템 PATH 환경변수를 파싱하고 각 경로에서 알려진 에이전트 패턴(task-master, gh, npm 등)을 검색한다. 발견된 바이너리에 대해 --version 명령을 실행하여 유효성을 검증한다. 일반적인 설치 경로(/usr/local/bin, ~/.npm/bin, ~/go/bin 등)도 스캔한다. 감지된 에이전트 정보를 메모리에 캐싱한다.",
+            "status": "pending",
+            "testStrategy": "모의 파일시스템과 PATH 설정으로 자동 감지 로직을 테스트하고, 다양한 OS 환경을 시뮬레이션한다."
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "title": "내부 이슈·Linear 읽기전용 통합",
+        "description": "Jellos 이슈 CRUD와 Linear GraphQL 링크/싱크를 구현해 이슈 메타데이터를 일관되게 노출한다.",
+        "details": "`Issue`, `ExternalIssueLink`, `IssueComment` 테이블을 Prisma 리포지토리로 래핑하고, Linear API 토큰을 Vault/Keychain에서 읽어 GraphQL SDK로 `IssueQuery`를 가져온다. 내부 이슈와 Linear 이슈를 한 리스트에서 정렬/필터링하며, 읽기전용 Linear 데이터는 stale-while-revalidate 캐시(10분)로 관리한다.\nPseudo-code:\n\\`\\`\\`ts\nconst linearClient = new LinearClient({ apiKey: secrets.linear });\nconst linearIssue = await linearClient.issue(issue.externalId);\nreturn mergeIssue(issue, linearIssue);\n\\`\\`\\`",
+        "testStrategy": "Contract 테스트로 Linear mock server에 대한 GraphQL 호출을 검증하고, UI Cypress 시나리오로 필터/정렬·상태 칩 업데이트를 확인한다.",
+        "priority": "medium",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Prisma 스키마 및 Issue 모델 구현",
+            "description": "Issue, ExternalIssueLink, IssueComment 테이블을 정의하고 Prisma 리포지토리 패턴으로 CRUD 작업을 래핑한다.",
+            "dependencies": [],
+            "details": "Prisma 스키마에 Issue(id, title, description, status, priority, createdAt, updatedAt), ExternalIssueLink(id, issueId, externalSystem, externalId, metadata), IssueComment(id, issueId, content, authorId, createdAt) 테이블을 정의하고, repository 패턴으로 IssueRepository 클래스를 구현해 데이터베이스 접근을 추상화한다. Zod 스키마로 입력 검증을 추가한다.",
+            "status": "pending",
+            "testStrategy": "단위 테스트로 각 repository 메서드의 CRUD 동작을 검증하고, 트랜잭션 롤백 시나리오를 테스트한다."
+          },
+          {
+            "id": 2,
+            "title": "Linear GraphQL SDK 클라이언트 설정",
+            "description": "Linear API 토큰을 Vault/Keychain에서 읽어 Linear GraphQL 클라이언트를 초기화하고 IssueQuery를 구현한다.",
+            "dependencies": [],
+            "details": "@linear/sdk 패키지를 설치하고 LinearClient를 초기화하는 서비스를 구성한다. Vault나 Keychain에서 LINEAR_API_KEY를 읽어오는 SecretManager 클래스를 구현하고, GraphQL 쿼리로 issue, issues, issueSearch 메서드를 래핑한다. 에러 핸들링과 재시도 로직을 추가해 네트워크 장애에 대응한다.",
+            "status": "pending",
+            "testStrategy": "Mock Linear 서버로 GraphQL 응답을 시뮬레이션하고, API 토큰이 없을 때의 에러 처리를 검증한다."
+          },
+          {
+            "id": 3,
+            "title": "외부 이슈 링크 동기화 시스템",
+            "description": "내부 이슈와 Linear 이슈 간의 링크를 생성하고 관리하는 동기화 로직을 구현한다.",
+            "dependencies": [
+              1,
+              2
+            ],
+            "details": "ExternalIssueLinkService를 구현해 내부 이슈 ID와 Linear 이슈 ID를 매핑한다. linkIssue(), unlinkIssue(), syncIssueMetadata() 메서드를 구현하고, Linear webhook 이벤트를 처리하는 엔드포인트를 추가한다. 중복 링크 방지와 orphaned 링크 정리 로직을 포함한다.",
+            "status": "pending",
+            "testStrategy": "통합 테스트로 링크 생성/삭제 플로우를 검증하고, 중복 링크 시도 시 적절한 에러가 발생하는지 확인한다."
+          },
+          {
+            "id": 4,
+            "title": "이슈 데이터 머지 및 변환 로직",
+            "description": "내부 이슈와 Linear 이슈 데이터를 통합해 일관된 형식으로 변환하는 머지 로직을 구현한다.",
+            "dependencies": [
+              2,
+              3
+            ],
+            "details": "IssueAggregator 서비스를 구현해 mergeIssue() 함수로 내부와 외부 이슈 데이터를 결합한다. 우선순위, 상태, 라벨 등의 필드를 매핑하는 transformation 로직을 추가하고, 충돌하는 필드에 대한 우선순위 규칙을 정의한다. TypeScript 인터페이스로 MergedIssue 타입을 정의해 타입 안정성을 보장한다.",
+            "status": "pending",
+            "testStrategy": "단위 테스트로 다양한 필드 조합의 머지 시나리오를 검증하고, 타입 호환성을 체크한다."
+          },
+          {
+            "id": 5,
+            "title": "SWR 캐싱 전략 구현",
+            "description": "Linear 데이터에 대한 stale-while-revalidate 캐싱(10분 TTL)을 구현해 API 호출을 최적화한다.",
+            "dependencies": [
+              2,
+              4
+            ],
+            "details": "Redis 또는 in-memory 캐시를 사용해 Linear API 응답을 10분간 캐싱한다. SWR 패턴을 구현해 stale 데이터를 즉시 반환하면서 백그라운드에서 revalidation을 수행한다. 캐시 키 생성 전략과 invalidation 로직을 구현하고, 캐시 히트율 메트릭을 추적한다.",
+            "status": "pending",
+            "testStrategy": "캐시 히트/미스 시나리오를 테스트하고, TTL 만료 후 자동 갱신이 작동하는지 검증한다."
+          },
+          {
+            "id": 6,
+            "title": "UI 통합 렌더링 컴포넌트",
+            "description": "통합된 이슈 목록을 렌더링하고 정렬/필터링할 수 있는 React 컴포넌트를 구현한다.",
+            "dependencies": [
+              4,
+              5
+            ],
+            "details": "IssueList, IssueCard, IssueFilters React 컴포넌트를 구현해 내부와 Linear 이슈를 통합 표시한다. 상태별 칩, 우선순위 아이콘, 외부 링크 인디케이터를 추가하고, 정렬(생성일, 수정일, 우선순위)과 필터링(상태, 담당자, 라벨) 기능을 구현한다. Tanstack Query로 데이터 페칭과 캐시를 관리한다.",
+            "status": "pending",
+            "testStrategy": "Cypress E2E 테스트로 필터/정렬 동작과 상태 칩 업데이트를 검증하고, 컴포넌트 렌더링 성능을 측정한다."
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "title": "Git 워크트리 라이프사이클 관리",
+        "description": "이슈별 워크트리를 생성·모니터링·정리하는 CLI-first 오케스트레이션을 만든다.",
+        "details": "`git fetch --prune origin` 후 `git worktree add`를 실행하기 전 PR 중복 여부와 작업 디렉터리 충돌을 검사한다. 워크트리 메타데이터(`path`, `branch`, `status`)를 DB에 저장하고, 스케줄러가 `git status --porcelain`으로 더티 상태를 감지해 자동 정리 또는 경고 이벤트를 발행한다.\nPseudo-code:\n\\`\\`\\`ts\nawait git(['fetch', '--prune', 'origin']);\nawait git(['worktree', 'add', worktreePath, `origin/${defaultBranch}`]);\n\\`\\`\\`\n다중 프로세스 경합을 막기 위해 PostgreSQL advisory lock 또는 SQLite busy timeout 기반 락을 구현하고, stale 워크트리 정리를 위한 CLI (`task-master worktrees prune`)를 노출한다.",
+        "testStrategy": "tmp 디렉터리를 사용하는 통합 테스트로 생성→커밋→삭제 플로우를 검증하고, PR 존재 시 차단 로직을 unit 테스트한다.",
+        "priority": "medium",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "워크트리 생성 전 유효성 검사 시스템 구현",
+            "description": "PR 중복 여부와 작업 디렉터리 충돌을 검사하는 유효성 검증 로직을 구현한다.",
+            "dependencies": [],
+            "details": "git fetch --prune origin 실행 후 GitHub API를 통해 해당 이슈의 기존 PR 존재 여부를 확인하고, 로컬 파일시스템에서 동일 경로의 워크트리 충돌을 검사한다. 충돌 발생 시 명확한 에러 메시지와 함께 생성을 차단한다.",
+            "status": "pending",
+            "testStrategy": "모킹된 GitHub API와 파일시스템으로 다양한 충돌 시나리오를 단위 테스트한다."
+          },
+          {
+            "id": 2,
+            "title": "Git 워크트리 생성 및 초기화 로직",
+            "description": "안전한 워크트리 생성과 브랜치 체크아웃을 수행하는 핵심 로직을 구현한다.",
+            "dependencies": [
+              1
+            ],
+            "details": "child_process.spawn으로 git worktree add 명령을 실행하고, 타임아웃과 에러 핸들링을 적용한다. 워크트리 경로는 프로젝트 루트 기준 .jellos/worktrees/{issue-id} 패턴으로 표준화하고, 생성 직후 브랜치 체크아웃 상태를 검증한다.",
+            "status": "pending",
+            "testStrategy": "임시 Git 저장소를 생성해 실제 워크트리 생성과 삭제 플로우를 통합 테스트한다."
+          },
+          {
+            "id": 3,
+            "title": "워크트리 메타데이터 DB 스키마 및 저장 로직",
+            "description": "워크트리 정보를 PostgreSQL/SQLite에 저장하고 관리하는 데이터 레이어를 구축한다.",
+            "dependencies": [],
+            "details": "worktrees 테이블에 id, path, branch, status, created_at, updated_at, last_activity 필드를 정의하고, Prisma/Drizzle ORM으로 모델을 생성한다. 워크트리 생성/업데이트/삭제 시 트랜잭션으로 메타데이터를 동기화하며, status는 active/dirty/stale enum으로 관리한다.",
+            "status": "pending",
+            "testStrategy": "인메모리 SQLite로 CRUD 작업과 트랜잭션 롤백 시나리오를 테스트한다."
+          },
+          {
+            "id": 4,
+            "title": "다중 프로세스 경합 방지 락 메커니즘",
+            "description": "동시 워크트리 작업 시 경합 조건을 방지하는 분산 락을 구현한다.",
+            "dependencies": [
+              3
+            ],
+            "details": "PostgreSQL의 advisory lock 또는 SQLite의 busy timeout 메커니즘을 활용해 워크트리별 배타적 락을 구현한다. 락 획득 실패 시 지수 백오프로 재시도하고, 데드락 감지 및 타임아웃(30초) 로직을 포함한다. 프로세스 비정상 종료 시 락 자동 해제를 보장한다.",
+            "status": "pending",
+            "testStrategy": "다중 프로세스를 동시에 실행해 락 획득 경쟁과 데드락 회피를 검증한다."
+          },
+          {
+            "id": 5,
+            "title": "워크트리 상태 모니터링 스케줄러",
+            "description": "주기적으로 워크트리의 더티 상태를 감지하고 이벤트를 발행하는 백그라운드 작업을 구현한다.",
+            "dependencies": [
+              3
+            ],
+            "details": "Node.js의 node-cron 또는 Bull Queue로 5분 간격 스케줄러를 실행하고, git status --porcelain으로 각 워크트리의 변경사항을 감지한다. 더티 상태가 1시간 이상 지속되면 경고 이벤트를 EventEmitter로 발행하고, 3일 이상 미사용 시 stale 마킹한다.",
+            "status": "pending",
+            "testStrategy": "시간을 모킹해 스케줄러 트리거와 상태 전환 로직을 단위 테스트한다."
+          },
+          {
+            "id": 6,
+            "title": "자동 정리 및 알림 시스템",
+            "description": "stale 워크트리를 자동으로 정리하고 사용자에게 알림을 보내는 시스템을 구축한다.",
+            "dependencies": [
+              5
+            ],
+            "details": "stale 마킹된 워크트리에 대해 사용자 확인 프롬프트를 표시하거나 강제 정리 모드를 지원한다. git worktree remove --force로 안전하게 제거하고, 정리 이력을 audit 로그에 기록한다. Slack/이메일 웹훅으로 정리 예정 알림을 24시간 전에 발송한다.",
+            "status": "pending",
+            "testStrategy": "모킹된 알림 채널과 워크트리 제거 시나리오를 통합 테스트한다."
+          },
+          {
+            "id": 7,
+            "title": "워크트리 관리 CLI 명령어 구현",
+            "description": "task-master worktrees 하위 명령어로 워크트리를 관리하는 CLI 인터페이스를 제공한다.",
+            "dependencies": [
+              2,
+              6
+            ],
+            "details": "Commander.js로 worktrees list/create/prune/status 서브커맨드를 구현한다. --force, --dry-run, --filter 옵션을 지원하고, 테이블 형식으로 워크트리 목록을 출력한다. prune 명령은 대화형 모드와 배치 모드를 모두 지원하며, 진행 상황을 ora 스피너로 표시한다.",
+            "status": "pending",
+            "testStrategy": "CLI 명령어 파싱과 출력 포맷을 스냅샷 테스트로 검증한다."
+          },
+          {
+            "id": 8,
+            "title": "워크트리 생성 후 환경 설정 자동화",
+            "description": "새 워크트리 생성 시 필요한 환경 설정과 의존성을 자동으로 구성한다.",
+            "dependencies": [
+              2
+            ],
+            "details": "워크트리 생성 직후 pnpm install, 환경 변수 복사(.env.local), Git hooks 설정을 자동 실행한다. 프로젝트별 .jellos.yml의 worktree.post-create 훅을 지원하고, 설정 실패 시 롤백 메커니즘을 제공한다. 캐시된 node_modules를 하드링크로 공유해 설치 시간을 단축한다.",
+            "status": "pending",
+            "testStrategy": "다양한 프로젝트 설정으로 후처리 스크립트 실행을 검증한다."
+          }
+        ]
+      },
+      {
+        "id": 8,
+        "title": "코드 에이전트 실행 엔진·SSE 스트리밍",
+        "description": "에이전트 실행 컨트롤러에서 CLI 스트림을 SSE로 중계하고 타임아웃·재시도를 관리한다.",
+        "details": "`@fastify/sse` 플러그인을 등록해 `reply.sse()`로 stdout/stderr를 실시간 전송하고, `Last-Event-ID` 처리 및 heartbeat를 내장한다. 클라이언트는 LaunchDarkly `js-eventsource`와 같은 폴리필을 사용할 때 지수 백오프·지터를 활성화해 동시 재연결 폭주를 방지한다. citeturn6search2turn6search0\nPseudo-code:\n\\`\\`\\`ts\nfastify.get('/executions/:id/stream', { sse: true }, async (req, reply) => {\n  for await (const chunk of agentAdapter.execute(ctx)) {\n    await reply.sse.send({ event: chunk.type, data: JSON.stringify(chunk) });\n  }\n});\n\\`\\`\\`\n실행 후 git diff/commit 메시지를 수집하고, 실패 시 exponential backoff로 최대 3회 재시도한다.",
+        "testStrategy": "Jest/Vitest로 async iterator를 모킹해 SSE 이벤트 순서를 검증하고, Playwright 브라우저 테스트로 끊김 후 재연결 시 로그 재생이 되는지 확인한다.",
+        "priority": "medium",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Fastify SSE 플러그인 설정 및 초기 구성",
+            "description": "@fastify/sse 플러그인을 설치하고 Fastify 인스턴스에 등록하며, 기본 SSE 엔드포인트와 CORS 설정을 구성한다.",
+            "dependencies": [],
+            "details": "pnpm add @fastify/sse를 실행하고 apps/api/src/plugins/sse.ts에서 플러그인을 등록한다. reply.sse() 메서드를 사용할 수 있도록 타입 정의를 확장하고, SSE 연결에 필요한 헤더(Cache-Control, Connection, X-Accel-Buffering)를 설정한다. CORS 정책을 조정해 클라이언트의 EventSource 접근을 허용한다.",
+            "status": "pending",
+            "testStrategy": "플러그인 등록 후 reply.sse가 정의되었는지 unit 테스트로 확인하고, 실제 SSE 연결이 열리는지 통합 테스트로 검증한다."
+          },
+          {
+            "id": 2,
+            "title": "에이전트 실행 컨트롤러 및 비동기 스트림 처리 구현",
+            "description": "에이전트 어댑터의 execute 메서드를 호출하고 AsyncIterator를 통해 stdout/stderr 청크를 실시간으로 처리하는 컨트롤러를 구현한다.",
+            "dependencies": [
+              1
+            ],
+            "details": "apps/api/src/controllers/execution.controller.ts에서 GET /executions/:id/stream 엔드포인트를 구현한다. agentAdapter.execute()의 AsyncGenerator에서 청크를 읽어 reply.sse.send()로 전송하며, 각 이벤트에 타입(stdout, stderr, error, complete)과 타임스탬프를 포함한다. 실행 컨텍스트와 세션 ID를 관리하고 동시 실행 제한을 적용한다.",
+            "status": "pending",
+            "testStrategy": "모킹된 AsyncIterator로 다양한 이벤트 시퀀스를 시뮬레이션하고, SSE 메시지 순서와 형식을 검증한다."
+          },
+          {
+            "id": 3,
+            "title": "타임아웃 관리 및 Heartbeat 메커니즘 구현",
+            "description": "실행 타임아웃과 SSE 연결 유지를 위한 heartbeat를 구현하고, Last-Event-ID를 통한 이벤트 재전송을 처리한다.",
+            "dependencies": [
+              2
+            ],
+            "details": "30초마다 heartbeat 이벤트를 전송해 연결을 유지하고, 실행이 5분을 초과하면 SIGTERM으로 종료한다. 클라이언트가 Last-Event-ID 헤더와 함께 재연결하면 해당 ID 이후의 이벤트를 Redis나 메모리 버퍼에서 재전송한다. AbortController를 사용해 클라이언트 연결 끊김을 감지하고 리소스를 정리한다.",
+            "status": "pending",
+            "testStrategy": "setTimeout으로 타임아웃 시나리오를 테스트하고, Last-Event-ID 재연결 시 올바른 이벤트가 재전송되는지 확인한다."
+          },
+          {
+            "id": 4,
+            "title": "지수 백오프 재시도 로직 구현",
+            "description": "에이전트 실행 실패 시 지수 백오프와 지터를 적용한 재시도 메커니즘을 구현하고, 최대 3회까지 재시도한다.",
+            "dependencies": [
+              2
+            ],
+            "details": "apps/api/src/utils/retry.ts에서 exponentialBackoff 함수를 구현한다. 초기 지연 1초, 최대 지연 30초, 지터 0-1초를 적용하며, 재시도 가능한 에러(네트워크, 타임아웃)와 불가능한 에러(권한, 문법)를 구분한다. 재시도 시마다 SSE로 retry 이벤트를 전송해 클라이언트에 상태를 알린다. Circuit Breaker 패턴을 적용해 연속 실패 시 일시적으로 요청을 차단한다.",
+            "status": "pending",
+            "testStrategy": "다양한 실패 시나리오에서 재시도 횟수와 지연 시간을 검증하고, Circuit Breaker 상태 전환을 테스트한다."
+          },
+          {
+            "id": 5,
+            "title": "클라이언트 재연결 처리 및 이벤트 소스 폴리필 설정",
+            "description": "클라이언트 측에서 LaunchDarkly js-eventsource 폴리필을 설정하고, 재연결 시 지수 백오프와 지터를 적용한다.",
+            "dependencies": [
+              3
+            ],
+            "details": "apps/web/src/lib/eventsource.ts에서 EventSource 폴리필을 구성한다. 재연결 시 초기 지연 1초, 최대 지연 30초, 지터 적용으로 동시 재연결 폭주를 방지한다. 연결 상태(connecting, open, closed)를 추적하고, 네트워크 변경 감지 시 자동 재연결한다. 이벤트 핸들러에서 버퍼링된 메시지를 순서대로 처리하고, 중복 이벤트를 필터링한다.",
+            "status": "pending",
+            "testStrategy": "Playwright로 네트워크 중단 후 재연결을 시뮬레이션하고, 이벤트 순서와 중복 제거를 검증한다."
+          },
+          {
+            "id": 6,
+            "title": "Git diff/commit 메시지 수집 및 저장",
+            "description": "에이전트 실행 완료 후 Git diff와 commit 메시지를 수집하고, 실행 결과와 함께 데이터베이스에 저장한다.",
+            "dependencies": [
+              2,
+              4
+            ],
+            "details": "apps/api/src/services/git.service.ts에서 실행 완료 후 git diff --cached와 git log -1 --format을 실행해 변경사항과 커밋 메시지를 수집한다. 실행 메타데이터(시작/종료 시간, 상태, 에러)와 함께 PostgreSQL이나 SQLite에 저장한다. 대용량 diff는 압축하거나 S3에 오프로드하고, 실행 이력 조회 API를 제공한다.",
+            "status": "pending",
+            "testStrategy": "임시 Git 저장소에서 변경 후 diff/commit 수집을 테스트하고, 데이터베이스 저장과 조회를 검증한다."
+          },
+          {
+            "id": 7,
+            "title": "실패 복구 메커니즘 및 에러 핸들링 통합",
+            "description": "실행 실패 시 복구 전략을 구현하고, 에러 타입별 처리 로직과 사용자 친화적 메시지를 제공한다.",
+            "dependencies": [
+              4,
+              6
+            ],
+            "details": "에러를 카테고리별로 분류(일시적/영구적/사용자/시스템)하고 각각에 맞는 복구 전략을 적용한다. 워크트리 손상 시 자동 재생성, 네트워크 실패 시 캐시 폴백, 권한 에러 시 명확한 가이드를 제공한다. 실패 패턴을 분석해 자주 발생하는 문제에 대한 자동 수정을 시도하고, 복구 불가능한 경우 롤백과 함께 상세한 디버그 정보를 로깅한다.",
+            "status": "pending",
+            "testStrategy": "다양한 실패 시나리오를 주입해 복구 로직을 테스트하고, 에러 메시지의 명확성과 복구 성공률을 측정한다."
+          }
+        ]
+      },
+      {
+        "id": 9,
+        "title": "Pull Request 생성·상태 동기화",
+        "description": "GitHub API를 사용해 PR을 자동 생성하고 중복·병합 흐름을 관리한다.",
+        "details": "이슈↔PR 매핑을 저장하고, PR 생성 시 GitHub 템플릿(이슈 링크·에이전트 요약·변경 파일)을 자동 작성한다. 오픈 PR이 존재하면 새 워크트리 생성/PR 생성을 차단하고, 상태 웹훅을 수신해 IN_REVIEW→MERGED/REJECTED 전이를 트리거한다.\nPseudo-code:\n\\`\\`\\`ts\nconst pr = await octokit.pulls.create({\n  owner, repo,\n  head: branch,\n  base: defaultBranch,\n  title: `feat(${issue.key}): ${issue.title}`,\n  body: renderTemplate(issue, execution)\n});\n\\`\\`\\`",
+        "testStrategy": "Octokit fixtures로 단위 테스트를 작성하고, GitHub Actions에서 dry-run 모드(`GITHUB_TOKEN` 미설정)를 검증한다.",
+        "priority": "medium",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "GitHub API 클라이언트 초기화 및 인증 설정",
+            "description": "Octokit 클라이언트를 설정하고 GitHub 앱/PAT 인증을 구성하여 API 호출 기반을 마련한다.",
+            "dependencies": [],
+            "details": "Octokit REST/GraphQL 클라이언트를 초기화하고 GitHub App 또는 Personal Access Token 기반 인증을 구성한다. 토큰은 환경변수나 시크릿 매니저에서 로드하며, rate limit 처리와 retry 로직을 포함한다. apps/api/src/github/client.ts에 OctokitFactory 클래스를 구현한다.",
+            "status": "pending",
+            "testStrategy": "Mock Octokit 응답으로 인증 성공/실패 케이스를 테스트하고, rate limit 초과 시 적절한 에러 핸들링을 검증한다."
+          },
+          {
+            "id": 2,
+            "title": "PR 템플릿 시스템 및 렌더링 엔진 구현",
+            "description": "이슈 정보와 실행 컨텍스트를 기반으로 GitHub PR 템플릿을 동적으로 생성하는 시스템을 구축한다.",
+            "dependencies": [],
+            "details": "Handlebars나 Mustache 기반 템플릿 엔진을 사용해 PR 본문을 렌더링한다. 템플릿에는 이슈 링크, 에이전트 실행 요약, 변경된 파일 목록, 체크리스트 등을 포함한다. .github/pull_request_template.md를 기본 템플릿으로 사용하되, 프로그래매틱하게 확장 가능하도록 구현한다.",
+            "status": "pending",
+            "testStrategy": "다양한 이슈 타입과 실행 컨텍스트로 템플릿 렌더링을 테스트하고, XSS 방지를 위한 이스케이핑이 올바르게 동작하는지 검증한다."
+          },
+          {
+            "id": 3,
+            "title": "이슈-PR 매핑 저장소 및 중복 방지 로직",
+            "description": "이슈와 PR 간의 관계를 추적하고 중복 PR 생성을 방지하는 데이터 레이어를 구현한다.",
+            "dependencies": [
+              1
+            ],
+            "details": "Prisma 모델에 IssuePRMapping 테이블을 추가하여 이슈 ID와 PR 번호를 매핑한다. PR 생성 전 해당 이슈에 대한 오픈 PR이 있는지 확인하고, 있다면 생성을 차단하는 가드 로직을 구현한다. 브랜치명 기반으로도 중복을 검사하여 동일 브랜치에서 여러 PR이 생성되지 않도록 한다.",
+            "status": "pending",
+            "testStrategy": "동일 이슈로 PR 생성 시도 시 중복 방지가 작동하는지 테스트하고, 머지/클로즈된 PR은 중복 체크에서 제외되는지 확인한다."
+          },
+          {
+            "id": 4,
+            "title": "PR 생성 API 엔드포인트 및 비즈니스 로직",
+            "description": "워크트리 실행 완료 후 자동으로 PR을 생성하는 API 엔드포인트와 핵심 비즈니스 로직을 구현한다.",
+            "dependencies": [
+              1,
+              2,
+              3
+            ],
+            "details": "Fastify POST /api/pull-requests 엔드포인트를 생성하고, 이슈 정보와 워크트리 브랜치를 받아 PR을 생성한다. octokit.pulls.create()를 호출하여 타이틀, 본문, 라벨, 리뷰어를 설정하고, 생성된 PR 정보를 데이터베이스에 저장한다. 에러 핸들링과 롤백 메커니즘을 포함한다.",
+            "status": "pending",
+            "testStrategy": "Octokit mock을 사용해 PR 생성 성공/실패 시나리오를 테스트하고, 트랜잭션 롤백이 올바르게 동작하는지 검증한다."
+          },
+          {
+            "id": 5,
+            "title": "GitHub 웹훅 수신 및 PR 상태 동기화",
+            "description": "GitHub 웹훅 이벤트를 수신하여 PR 상태 변경을 로컬 데이터베이스와 동기화하는 시스템을 구축한다.",
+            "dependencies": [
+              3,
+              4
+            ],
+            "details": "Fastify POST /api/webhooks/github 엔드포인트에서 pull_request 이벤트를 수신한다. HMAC 시그니처를 검증하여 보안을 확보하고, opened/closed/merged/review_requested 등의 액션을 처리한다. PR 상태를 IN_REVIEW, MERGED, REJECTED로 매핑하여 데이터베이스를 업데이트하고, 관련 워크트리의 상태도 함께 전이시킨다.",
+            "status": "pending",
+            "testStrategy": "웹훅 페이로드 시그니처 검증을 테스트하고, 각 PR 이벤트 타입에 대한 상태 전이가 올바르게 동작하는지 통합 테스트로 확인한다."
+          }
+        ]
+      },
+      {
+        "id": 10,
+        "title": "고성능 Diff Viewer",
+        "description": "100개 파일·5000라인까지 2초 내 로드되는 가상 스크롤 Diff 뷰어를 구축한다.",
+        "details": "`/diff-data` API에서 git diff를 JSON으로 제공하고, 클라이언트는 React Server Component로 데이터를 스트림 받은 뒤 `react-virtuoso 4.14.x`의 다중 리스트(파일 목록, 라인 뷰)를 사용해 가시 영역만 렌더링한다. citeturn2search2\nPseudo-code:\n\\`\\`\\`tsx\n<Virtuoso\n  totalCount={diff.lines.length}\n  itemContent={(index) => <DiffLineRow line={diff.lines[index]} />}\n/>\n\\`\\`\\`\nSyntax 하이라이터는 Web Worker로 offload하고, 사이드바·유니파이드 모드를 토글 가능한 컴포넌트로 설계한다.",
+        "testStrategy": "Lighthouse/TanStack Bench로 5000라인 샘플의 렌더 시간을 측정하고, jest-dom 스냅샷으로 추가/삭제 라인 렌더링을 검증한다.",
+        "priority": "medium",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Git Diff API 엔드포인트 구현",
+            "description": "Fastify에서 git diff 데이터를 JSON으로 변환하여 제공하는 `/diff-data` API 엔드포인트를 구현한다.",
+            "dependencies": [],
+            "details": "simple-git 라이브러리를 사용해 git diff를 파싱하고, 파일별로 추가/삭제/수정 라인을 구조화된 JSON으로 변환한다. 대용량 diff의 경우 스트리밍 응답을 지원하도록 Fastify의 reply.raw.write()를 활용하며, 100개 파일/5000라인 기준 벤치마크를 수행한다.",
+            "status": "pending",
+            "testStrategy": "Jest로 다양한 diff 시나리오(신규 파일, 삭제, 이름 변경, 바이너리)를 모킹하고, 대용량 diff 응답 시간이 500ms 이내인지 검증한다."
+          },
+          {
+            "id": 2,
+            "title": "Diff 데이터 JSON 변환 로직 구현",
+            "description": "Git diff 출력을 파싱하여 프론트엔드에서 사용할 수 있는 구조화된 JSON 형식으로 변환하는 유틸리티를 개발한다.",
+            "dependencies": [
+              1
+            ],
+            "details": "Unified/Split diff 형식을 파싱하여 파일명, 변경 유형(added/modified/deleted), 라인별 변경 내용, 청크 정보를 포함하는 JSON 구조를 생성한다. 특수 문자 이스케이핑, 바이너리 파일 처리, rename 감지 로직을 포함하며, 메모리 효율적인 스트리밍 파서로 구현한다.",
+            "status": "pending",
+            "testStrategy": "다양한 git diff 출력 샘플을 입력으로 JSON 변환 정확도를 검증하고, 메모리 사용량이 입력 크기의 2배를 초과하지 않는지 확인한다."
+          },
+          {
+            "id": 3,
+            "title": "React Virtuoso 통합 및 가상 스크롤 컴포넌트",
+            "description": "react-virtuoso 4.14.x를 사용하여 대용량 diff를 효율적으로 렌더링하는 가상 스크롤 컴포넌트를 구현한다.",
+            "dependencies": [
+              2
+            ],
+            "details": "Virtuoso의 GroupedVirtuoso를 활용해 파일 단위 그룹핑을 구현하고, 각 파일 내 라인은 개별 아이템으로 처리한다. overscan 속성을 조정해 스크롤 성능을 최적화하고, 동적 높이 계산을 위한 measureElement 콜백을 구현한다. React Server Component에서 초기 데이터를 스트리밍하여 hydration 성능을 개선한다.",
+            "status": "pending",
+            "testStrategy": "React Testing Library로 가시 영역 내 요소만 DOM에 존재하는지 확인하고, 5000라인 렌더링 시 초기 페인트가 100ms 이내인지 측정한다."
+          },
+          {
+            "id": 4,
+            "title": "DiffLineRow 컴포넌트 및 라인별 렌더링",
+            "description": "개별 diff 라인을 렌더링하는 최적화된 React 컴포넌트를 구현하여 추가/삭제/수정 라인을 시각적으로 표현한다.",
+            "dependencies": [
+              3
+            ],
+            "details": "React.memo를 활용한 메모이제이션, CSS-in-JS 대신 CSS Module로 스타일 최적화, 라인 번호/변경 타입/코드 내용을 효율적으로 렌더링한다. 추가 라인은 녹색, 삭제는 빨강색 배경으로 표시하고, 라인 번호는 고정 너비로 정렬한다. 긴 라인에 대한 가로 스크롤과 워드랩 토글을 지원한다.",
+            "status": "pending",
+            "testStrategy": "스냅샷 테스트로 각 변경 타입별 렌더링을 검증하고, React DevTools Profiler로 불필요한 리렌더링이 없는지 확인한다."
+          },
+          {
+            "id": 5,
+            "title": "Web Worker 기반 신택스 하이라이팅",
+            "description": "코드 신택스 하이라이팅을 Web Worker에서 처리하여 메인 스레드 블로킹을 방지하는 시스템을 구현한다.",
+            "dependencies": [
+              4
+            ],
+            "details": "Prism.js 또는 Shiki를 Web Worker에서 실행하여 언어별 신택스 하이라이팅을 수행한다. 가시 영역의 라인만 우선 처리하는 큐 시스템을 구현하고, 처리된 결과는 Map으로 캐싱한다. postMessage로 하이라이팅 요청을 배치 처리하여 IPC 오버헤드를 최소화한다.",
+            "status": "pending",
+            "testStrategy": "Worker 메시지 핸들링을 모킹하여 하이라이팅 결과가 올바른지 검증하고, 100개 라인 처리 시 메인 스레드 블로킹이 16ms를 초과하지 않는지 측정한다."
+          },
+          {
+            "id": 6,
+            "title": "뷰 모드 전환 UI (사이드바/유니파이드)",
+            "description": "Split(사이드바이사이드)와 Unified(통합) 뷰 모드를 전환할 수 있는 UI 컴포넌트와 상태 관리를 구현한다.",
+            "dependencies": [
+              5
+            ],
+            "details": "Zustand 또는 Context API로 뷰 모드 상태를 관리하고, 모드 전환 시 부드러운 트랜지션을 CSS transition으로 구현한다. Split 모드에서는 좌우 패널 동기 스크롤을, Unified 모드에서는 인라인 변경 표시를 지원한다. 사용자 선호 설정을 localStorage에 저장하여 세션 간 유지한다.",
+            "status": "pending",
+            "testStrategy": "뷰 모드 전환 시 레이아웃 시프트가 없는지 확인하고, 두 모드에서 동일한 diff 내용이 올바르게 표시되는지 E2E 테스트로 검증한다."
+          },
+          {
+            "id": 7,
+            "title": "성능 최적화 및 벤치마크 구축",
+            "description": "100개 파일/5000라인 기준 2초 내 로드 목표를 달성하기 위한 성능 최적화와 지속적인 벤치마크 시스템을 구축한다.",
+            "dependencies": [
+              6
+            ],
+            "details": "React DevTools Profiler와 Chrome Performance API로 병목 구간을 식별하고, 코드 스플리팅, 동적 임포트, 이미지 레이지 로딩을 적용한다. TanStack Bench로 컴포넌트별 렌더링 성능을 측정하고, Lighthouse CI를 통해 Core Web Vitals(LCP, FID, CLS)를 모니터링한다. 대용량 diff 샘플로 스트레스 테스트를 수행한다.",
+            "status": "pending",
+            "testStrategy": "5000라인 샘플 diff로 초기 로드 시간, TTI, 메모리 사용량을 측정하고, 95 percentile이 2초 이내인지 확인한다."
+          }
+        ]
+      },
+      {
+        "id": 11,
+        "title": "Kanban 보드·드래그앤드롭 UX",
+        "description": "TODO→DEPLOYED 컬럼 보드를 구현하고 드래그로 상태 전환·실시간 업데이트를 지원한다.",
+        "details": "`react-beautiful-dnd` 대신 최신 `@dnd-kit`을 사용해 키보드 포커스 가능, 스크린리더 지침, ESC 취소 등 WCAG 2.1 요구사항을 충족한다. `screenReaderInstructions`를 한글/영문으로 현지화하고, 컬럼·카드 이동 시 optimistic update 후 `/issues/:id/status` API를 호출한다. citeturn2search0\nPseudo-code:\n\\`\\`\\`tsx\n<DndContext sensors={[mouseSensor, keyboardSensor]} onDragEnd={handleMove}>\n  <KanbanColumn status=\"TODO\" issues={todoIssues} />\n</DndContext>\n\\`\\`\\`\n실시간 업데이트는 WebSocket/SSE 이벤트를 구독해 상태 보드에 반영한다.",
+        "testStrategy": "Jest + Testing Library로 키보드 드래그 흐름을 스냅샷하고, Cypress로 모바일/데스크톱 드래그 UX를 검증한다.",
+        "priority": "medium",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "@dnd-kit 라이브러리 설정 및 기본 DnD 컨텍스트 구성",
+            "description": "@dnd-kit/core, @dnd-kit/sortable 패키지를 설치하고 DndContext 프로바이더와 마우스/키보드 센서를 설정한다",
+            "dependencies": [],
+            "details": "패키지 설치 후 DndContext를 최상위에 래핑하고, MouseSensor와 KeyboardSensor를 활성화한다. activationConstraint로 드래그 임계값을 설정하여 의도치 않은 드래그를 방지한다",
+            "status": "pending",
+            "testStrategy": "DndContext 렌더링 여부와 센서 초기화 상태를 Jest로 단위 테스트한다"
+          },
+          {
+            "id": 2,
+            "title": "칸반 컬럼 컴포넌트 구현 (TODO/IN_PROGRESS/REVIEW/DEPLOYED)",
+            "description": "각 상태별 칸반 컬럼을 구현하고 SortableContext로 드롭 가능 영역을 정의한다",
+            "dependencies": [
+              1
+            ],
+            "details": "KanbanColumn 컴포넌트에서 useSortable 훅을 사용하고, 컬럼별로 이슈 카드를 렌더링한다. 빈 컬럼 상태와 드롭 인디케이터 UI를 포함하며, 컬럼 헤더에 카운트 배지를 표시한다",
+            "status": "pending",
+            "testStrategy": "각 컬럼이 올바른 이슈를 표시하고 드롭 영역이 활성화되는지 Testing Library로 검증한다"
+          },
+          {
+            "id": 3,
+            "title": "드래그 가능한 이슈 카드 컴포넌트 및 드래그 핸들러 구현",
+            "description": "이슈 카드를 draggable로 만들고 onDragEnd 이벤트에서 상태 변경 로직을 처리한다",
+            "dependencies": [
+              2
+            ],
+            "details": "useDraggable 훅으로 카드를 드래그 가능하게 만들고, transform과 transition 스타일을 적용한다. onDragEnd에서 active/over 정보를 파싱해 이슈 위치와 상태를 계산하고 업데이트한다",
+            "status": "pending",
+            "testStrategy": "드래그 시작/종료 이벤트가 올바르게 발생하고 카드 위치가 업데이트되는지 Jest로 테스트한다"
+          },
+          {
+            "id": 4,
+            "title": "키보드 접근성 및 스크린리더 지원 구현",
+            "description": "WCAG 2.1 AA 기준에 맞춰 키보드 내비게이션, ESC 취소, 스크린리더 안내 메시지를 구현한다",
+            "dependencies": [
+              3
+            ],
+            "details": "KeyboardSensor 설정에서 스페이스바 활성화와 화살표 이동을 구현하고, ESC 키로 드래그를 취소한다. screenReaderInstructions를 한글/영문으로 제공하며, aria-live로 상태 변경을 알린다. 포커스 트랩과 탭 순서를 관리한다",
+            "status": "pending",
+            "testStrategy": "키보드만으로 전체 드래그 플로우가 가능한지 Cypress와 axe-core로 접근성을 검증한다"
+          },
+          {
+            "id": 5,
+            "title": "Optimistic UI 업데이트 및 API 연동",
+            "description": "드래그 완료 시 즉시 UI를 업데이트하고 백그라운드에서 /issues/:id/status API를 호출한다",
+            "dependencies": [
+              4
+            ],
+            "details": "React Query의 useMutation과 optimisticUpdate를 사용해 드래그 즉시 UI를 반영하고, API 실패 시 롤백한다. 로딩/에러 상태를 토스트로 표시하며, 재시도 로직을 구현한다. 캐시 무효화로 데이터 일관성을 보장한다",
+            "status": "pending",
+            "testStrategy": "MSW로 API 성공/실패 시나리오를 모킹하고 UI 롤백이 정상 작동하는지 통합 테스트한다"
+          },
+          {
+            "id": 6,
+            "title": "실시간 동기화 WebSocket/SSE 연결 구현",
+            "description": "다른 사용자의 보드 변경사항을 실시간으로 수신하고 칸반 보드에 자동 반영한다",
+            "dependencies": [
+              5
+            ],
+            "details": "EventSource나 WebSocket으로 서버 연결을 유지하고, 'issue:status:changed' 이벤트를 구독한다. 받은 업데이트를 현재 보드 상태와 병합하며, 충돌 해결 로직을 구현한다. 재연결과 백오프 전략을 포함한다",
+            "status": "pending",
+            "testStrategy": "여러 클라이언트 간 상태 동기화를 E2E 테스트로 검증하고 네트워크 끊김 시 재연결을 확인한다"
+          }
+        ]
+      },
+      {
+        "id": 12,
+        "title": "상태 머신·이벤트 버스 구현",
+        "description": "Issue/PR/배포 이벤트를 연결하는 상태 전이 엔진과 이벤트 버스를 구축한다.",
+        "details": "`IssueStateHistory` 테이블을 기반으로 FSM(예: XState) 혹은 커스텀 전이 매퍼를 정의하고, Fastify 이벤트 훅 → Kafka/Redis pub-sub로 브로드캐스트한다. Event sourcing을 통해 실패 시 리트라이나 롤백을 자동화하며, event-driven 모듈은 Kafkajs·BullMQ 등 pluggable adapter를 지원한다. citeturn3search5\nPseudo-code:\n\\`\\`\\`ts\nconst transitions: Transition[] = [\n  { from: 'TODO', to: 'IN_PROGRESS', condition: hasActiveExecution }\n];\nawait bus.publish({ type: 'IssueStatusChanged', payload });\n\\`\\`\\`\n전이 실패 시 Saga 보상 작업(예: 작업 트리 정리)을 예약한다.",
+        "testStrategy": "State chart 단위 테스트와, 이벤트 버스 통합 테스트(Kafka mock)로 멱등성과 재시도 로직을 검증한다.",
+        "priority": "medium",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "FSM 설계 및 상태 전이 규칙 정의",
+            "description": "Issue/PR/배포의 상태 머신 모델을 설계하고 전이 규칙을 정의한다",
+            "dependencies": [],
+            "details": "XState 또는 커스텀 FSM 라이브러리를 평가하고 선택한다. TODO, IN_PROGRESS, BLOCKED, REVIEW, DONE 등의 상태와 전이 조건(hasActiveExecution, hasApprovals 등)을 정의한다. 각 도메인(Issue, PR, Deploy)별 상태 차트를 작성하고 전이 매트릭스를 문서화한다",
+            "status": "pending",
+            "testStrategy": "XState visualizer로 상태 차트를 검증하고, 각 전이 경로에 대한 단위 테스트를 작성한다"
+          },
+          {
+            "id": 2,
+            "title": "IssueStateHistory 테이블 스키마 구현",
+            "description": "상태 전이 이력을 저장할 Prisma 스키마와 마이그레이션을 생성한다",
+            "dependencies": [
+              1
+            ],
+            "details": "Prisma 스키마에 IssueStateHistory, PRStateHistory, DeployStateHistory 모델을 추가한다. 각 이력은 entityId, fromState, toState, transitionedBy, reason, metadata(JSON), timestamp 필드를 포함한다. 인덱스를 entityId와 timestamp에 설정하여 쿼리 성능을 최적화한다",
+            "status": "pending",
+            "testStrategy": "Prisma migrate dev로 스키마를 적용하고, 이력 CRUD 작업에 대한 리포지토리 단위 테스트를 작성한다"
+          },
+          {
+            "id": 3,
+            "title": "이벤트 버스 아키텍처 구현",
+            "description": "플러거블 어댑터 패턴으로 Kafka/Redis pub-sub을 지원하는 이벤트 버스를 구축한다",
+            "dependencies": [
+              2
+            ],
+            "details": "EventBus 인터페이스를 정의하고 KafkaAdapter(kafkajs), RedisAdapter(BullMQ), InMemoryAdapter를 구현한다. publish(), subscribe(), unsubscribe() 메서드와 메시지 직렬화/역직렬화 로직을 포함한다. 환경변수로 어댑터를 선택하도록 팩토리 패턴을 적용한다",
+            "status": "pending",
+            "testStrategy": "각 어댑터에 대한 단위 테스트와 모킹을 통한 통합 테스트를 작성한다. testcontainers로 Kafka/Redis 컨테이너를 띄워 실제 환경을 검증한다"
+          },
+          {
+            "id": 4,
+            "title": "Fastify 이벤트 훅 통합",
+            "description": "Fastify의 라이프사이클 훅을 이벤트 버스와 연결하여 상태 변경을 브로드캐스트한다",
+            "dependencies": [
+              3
+            ],
+            "details": "Fastify 플러그인으로 onRequest, preHandler, onSend 훅에서 상태 변경 이벤트를 감지한다. IssueStatusChanged, PRMerged, DeployCompleted 등의 이벤트 타입을 정의하고 페이로드 스키마를 zod로 검증한다. 이벤트 발행 시 correlation ID를 생성하여 분산 추적을 지원한다",
+            "status": "pending",
+            "testStrategy": "Fastify 인스턴스를 생성하여 각 훅에서 이벤트가 정상 발행되는지 확인하고, 이벤트 페이로드 검증 테스트를 작성한다"
+          },
+          {
+            "id": 5,
+            "title": "Event Sourcing 패턴 구현",
+            "description": "이벤트 저장소를 구축하고 이벤트 재생을 통한 상태 복원을 구현한다",
+            "dependencies": [
+              4
+            ],
+            "details": "EventStore 테이블(aggregateId, eventType, payload, version, timestamp)을 생성한다. 이벤트 스냅샷 메커니즘으로 매 100개 이벤트마다 현재 상태를 저장한다. getEventsByAggregateId(), replayEvents() 메서드로 특정 시점의 상태를 재구성한다. 이벤트 버전 관리와 스키마 마이그레이션 전략을 수립한다",
+            "status": "pending",
+            "testStrategy": "이벤트 저장/조회/재생 시나리오에 대한 통합 테스트를 작성하고, 동시성 제어와 버전 충돌 처리를 검증한다"
+          },
+          {
+            "id": 6,
+            "title": "Saga 패턴 보상 트랜잭션",
+            "description": "상태 전이 실패 시 보상 작업을 수행하는 Saga 오케스트레이터를 구현한다",
+            "dependencies": [
+              5
+            ],
+            "details": "SagaOrchestrator 클래스로 전이 트랜잭션을 관리하고, 각 단계별 compensate() 메서드를 정의한다. 작업 트리 정리, 외부 시스템 롤백, 알림 취소 등의 보상 작업을 구현한다. Saga 실행 상태를 추적하고 타임아웃 처리를 포함한다. 보상 작업도 이벤트로 발행하여 감사 추적을 남긴다",
+            "status": "pending",
+            "testStrategy": "의도적으로 실패를 유발하여 보상 트랜잭션이 정상 실행되는지 검증하고, 중첩된 Saga 시나리오를 테스트한다"
+          },
+          {
+            "id": 7,
+            "title": "재시도 메커니즘 및 DLQ 구현",
+            "description": "이벤트 처리 실패 시 지수 백오프 재시도와 데드레터 큐를 구현한다",
+            "dependencies": [
+              6
+            ],
+            "details": "RetryPolicy 인터페이스로 maxAttempts, backoffMultiplier, maxDelay를 설정한다. 실패한 이벤트를 DLQ로 이동시키고 수동 재처리 엔드포인트를 제공한다. 재시도 횟수와 실패 원인을 메타데이터로 저장한다. Circuit Breaker 패턴을 적용하여 연속 실패 시 자동으로 회로를 차단한다",
+            "status": "pending",
+            "testStrategy": "재시도 정책이 올바르게 적용되는지 확인하고, DLQ 이동 및 수동 재처리 플로우를 통합 테스트한다"
+          },
+          {
+            "id": 8,
+            "title": "상태 머신 모니터링 및 메트릭",
+            "description": "상태 전이 메트릭을 수집하고 모니터링 대시보드를 구축한다",
+            "dependencies": [
+              7
+            ],
+            "details": "Prometheus 메트릭으로 상태별 체류 시간, 전이 빈도, 실패율을 추적한다. Grafana 대시보드로 상태 머신 건강도를 시각화한다. 임계값 초과 시 알림을 발송하는 규칙을 설정한다. 상태 전이 로그를 구조화하여 디버깅을 용이하게 한다",
+            "status": "pending",
+            "testStrategy": "메트릭 수집이 정상 작동하는지 확인하고, 알림 규칙이 트리거되는 시나리오를 검증한다"
+          }
+        ]
+      },
+      {
+        "id": 13,
+        "title": "링크아웃/외부 도구 URL 빌더",
+        "description": "GitHub/Linear/CI/디플로이 URL 템플릿을 구성해 UI에서 원클릭으로 외부 도구를 연다.",
+        "details": "`.jellos.yml`의 `links` 섹션을 파싱해 템플릿 엔진(Mustache-lite)을 사용하고, UI는 copy 버튼·단축키(Cmd+Shift+O)를 제공한다. 각 엔터티 상세 화면에서 링크 CTA를 렌더링하고, URL validation을 거쳐 XSS를 방지한다.\nPseudo-code:\n\\`\\`\\`ts\nconst buildLink = (template: string, params: Record<string,string>) =>\n  template.replace(/\\{(\\w+)\\}/g, (_, key) => params[key] ?? '');\n\\`\\`\\`",
+        "testStrategy": "단위 테스트로 템플릿 치환/에러 케이스를 검증하고, Cypress로 UI copy-to-clipboard 기능을 확인한다.",
+        "priority": "medium",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "URL 템플릿 엔진 구현",
+            "description": "Mustache-lite 스타일의 템플릿 엔진을 구현하여 URL 템플릿 문자열을 파라미터로 치환하는 핵심 로직을 개발한다.",
+            "dependencies": [],
+            "details": "정규표현식 기반으로 {key} 형태의 플레이스홀더를 찾아 params 객체의 값으로 치환하는 buildLink 함수를 구현한다. 누락된 파라미터 처리, 중첩 템플릿 지원, 특수문자 이스케이핑을 고려하여 XSS 공격을 방지한다.",
+            "status": "pending",
+            "testStrategy": "단위 테스트로 다양한 템플릿 패턴(단순/복잡/중첩), 파라미터 누락, 특수문자 처리, XSS 방지 케이스를 검증한다."
+          },
+          {
+            "id": 2,
+            "title": ".jellos.yml 링크 섹션 파싱",
+            "description": "YAML 설정 파일에서 links 섹션을 파싱하여 외부 도구 URL 템플릿 설정을 로드하고 검증한다.",
+            "dependencies": [],
+            "details": "js-yaml 라이브러리를 사용하여 .jellos.yml 파일을 파싱하고, links 섹션의 스키마를 검증한다. GitHub, Linear, CI/CD 등 각 서비스별 URL 템플릿 구조를 정의하고, 필수/선택 파라미터를 명시한다. 설정 변경 시 핫 리로드를 지원한다.",
+            "status": "pending",
+            "testStrategy": "유효한/무효한 YAML 설정 파일에 대한 파싱 테스트, 스키마 검증 테스트, 설정 리로드 시나리오를 작성한다."
+          },
+          {
+            "id": 3,
+            "title": "UI 링크 컴포넌트 개발",
+            "description": "엔터티 상세 화면에서 외부 링크를 렌더링하는 React 컴포넌트를 구현하고 CTA 버튼을 제공한다.",
+            "dependencies": [
+              1,
+              2
+            ],
+            "details": "React 컴포넌트로 LinkBuilder UI를 구현하여 각 엔터티(이슈, PR, 워크트리) 상세 화면에 외부 도구 링크를 표시한다. 링크 아이콘, 툴팁, 호버 효과를 추가하고 새 탭에서 열기 기능을 제공한다. URL validation을 통해 유효한 링크만 활성화한다.",
+            "status": "pending",
+            "testStrategy": "React Testing Library로 컴포넌트 렌더링, 링크 클릭, 비활성 상태 테스트를 작성하고 Storybook으로 시각적 회귀를 검증한다."
+          },
+          {
+            "id": 4,
+            "title": "클립보드 복사 및 단축키 기능",
+            "description": "링크 URL을 클립보드에 복사하는 기능과 Cmd+Shift+O 단축키 바인딩을 구현한다.",
+            "dependencies": [
+              3
+            ],
+            "details": "Clipboard API를 사용하여 링크 복사 기능을 구현하고, 복사 성공/실패 토스트 알림을 표시한다. react-hotkeys-hook으로 Cmd+Shift+O(Mac)/Ctrl+Shift+O(Windows) 단축키를 바인딩하여 링크 패널을 열거나 선택된 링크를 복사한다. 브라우저 권한 처리와 폴백 로직을 구현한다.",
+            "status": "pending",
+            "testStrategy": "Cypress E2E 테스트로 클립보드 복사, 단축키 동작, 토스트 알림을 검증하고 다양한 브라우저에서 호환성을 테스트한다."
+          }
+        ]
+      },
+      {
+        "id": 14,
+        "title": "관측성·에러 복구 체계",
+        "description": "Fastify Diagnostics Channel·구조화 로그·헬스체크를 설정해 회복력을 높인다.",
+        "details": "Fastify v5의 Diagnostics Channel 지원을 통해 요청 시작/종료/에러 트레이스를 중앙 로거(pino)로 전송하고, 이벤트 버스와 연동해 Circuit Breaker(예: fastify-under-pressure) 및 캐시 폴백을 구현한다. 에러 유형별 사용자 메시지·자동 재시도를 정의하고, 헬스 엔드포인트(`/healthz`,`/readyz`)에 Git/DB/Linear/Agent 체크를 포함한다. citeturn0search4\nPseudo-code:\n\\`\\`\\`ts\nconst diagnostics = require('node:diagnostics_channel');\ndiagnostics.subscribe('tracing:fastify.request.handler:error', logError);\n\\`\\`\\`\n에러 스토어는 Sentry/Telemetry sink로 전송하고, 재시도는 지수 백오프+서킷 상태 기반으로 제한한다.",
+        "testStrategy": "k6로 장애 주입(Linear 500, GitHub 타임아웃)을 시행해 회복 로직을 검증하고, 로깅/메트릭 노출 여부를 Loki/Prometheus에서 확인한다.",
+        "priority": "medium",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 15,
+        "title": "보안·비밀·권한 제어",
+        "description": "Secret 관리와 최소권한 실행을 제도화한다.",
+        "details": "`.jellos.yml`의 `${secret:KEY}`를 로컬 Keychain/1Password CLI에서 주입하고, 서버 실행 시 Node Permission Model 플래그를 사용해 FS/네트워크 접근을 화이트리스트한다. Child process, native addon, WASI 접근은 명시적으로 허용해 CLI 실행 시 우발적 권한 상승을 막는다. citeturn3search1\nPseudo-code:\n\\`\\`\\`bash\nnode --permission --allow-child-process --allow-read-fs=/Users/jelly/projects apps/api/dist/main.js\n\\`\\`\\`\n비밀 회전 시 Taskmaster CLI가 `.env`→Keychain 동기화를 수행하도록 스크립트를 추가한다.",
+        "testStrategy": "권한이 없는 경로 접근 시 `ERR_ACCESS_DENIED`가 발생하는지 통합 테스트하고, Secret 미설정 시 서버가 부팅되지 않고 명확한 에러를 노출하는지 확인한다.",
+        "priority": "medium",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": []
+      }
+    ],
+    "metadata": {
+      "created": "2025-11-11T15:18:10.051Z",
+      "updated": "2025-11-11T15:18:10.051Z",
+      "description": "Tasks for master context"
+    }
+  }
+}
