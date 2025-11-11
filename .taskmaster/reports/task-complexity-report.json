@@ -1,133 +1,133 @@
 {
-	"meta": {
-		"generatedAt": "2025-11-11T16:07:34.711Z",
-		"tasksAnalyzed": 15,
-		"totalTasks": 15,
-		"analysisCount": 15,
-		"thresholdScore": 5,
-		"projectName": "Taskmaster",
-		"usedResearch": false
-	},
-	"complexityAnalysis": [
-		{
-			"taskId": 1,
-			"taskTitle": "런타임/모노레포 초기화 및 환경 표준화",
-			"complexityScore": 7,
-			"recommendedSubtasks": 8,
-			"expansionPrompt": "PNPM workspace 구조 초기화, Next.js 15와 Fastify 5 앱 생성, Turborepo/Nx 빌드 파이프라인 구성, TypeScript 공통 설정, ESLint/Prettier 표준화, Node 22 버전 고정, Git hooks 설정, 환경 변수 템플릿 작성 등의 세부 작업으로 나누어 구현",
-			"reasoning": "새 프로젝트 초기 설정으로 여러 도구와 프레임워크 통합이 필요하며, 모노레포 구조 설계와 빌드 도구 구성이 복잡함. Next.js 15와 Fastify 5의 최신 버전 통합과 Turborepo 파이프라인 설정이 핵심"
-		},
-		{
-			"taskId": 2,
-			"taskTitle": "Prisma·SQLite 스키마 및 WAL2 성능 구성",
-			"complexityScore": 6,
-			"recommendedSubtasks": 6,
-			"expansionPrompt": "Prisma 스키마 설계 (Project, Issue, Worktree, Agent 모델), SQLite WAL2 모드 구성, 마이그레이션 파이프라인 설정, Nx 타겟 통합, 시드 데이터 스크립트 작성, 데이터베이스 경로 구성 등으로 분할",
-			"reasoning": "데이터베이스 스키마 설계와 Prisma 설정은 중간 복잡도이지만, SQLite WAL2 성능 최적화와 마이그레이션 파이프라인 통합이 추가 복잡도를 더함"
-		},
-		{
-			"taskId": 3,
-			"taskTitle": "프로젝트 관리 API (CRUD·헬스·설정)",
-			"complexityScore": 5,
-			"recommendedSubtasks": 5,
-			"expansionPrompt": "Fastify 라우트 구조 설계, 프로젝트 CRUD 엔드포인트, Zod 스키마 검증, 서비스 계층 구현, 헬스체크 엔드포인트와 이벤트 버스 연동으로 구분",
-			"reasoning": "표준 REST API 구현으로 복잡도는 중간 수준. Fastify 5와 Prisma 통합, 이벤트 버스 연동이 주요 기술 과제"
-		},
-		{
-			"taskId": 4,
-			"taskTitle": "프로젝트 중심 LNB·내비게이션 UI",
-			"complexityScore": 6,
-			"recommendedSubtasks": 6,
-			"expansionPrompt": "Next.js 서버 컴포넌트 구조, Virtua 가상 스크롤 통합, 프로젝트 트리 컴포넌트, 에이전트 배지 시스템, Command Palette 단축키, 로컬 스토리지 상태 관리로 나누어 구현",
-			"reasoning": "React 19와 Next.js 15의 서버 컴포넌트 활용, 가상 스크롤링으로 대규모 리스트 처리, 복잡한 UI 상태 관리가 필요"
-		},
-		{
-			"taskId": 5,
-			"taskTitle": "코드 에이전트 디스커버리·헬스 체크 파이프라인",
-			"complexityScore": 7,
-			"recommendedSubtasks": 7,
-			"expansionPrompt": "에이전트 디스커버리 로직, child_process 안전 실행, Node Permission Model 적용, Redis 캐싱 레이어, 헬스체크 엔드포인트, 우선순위 규칙 엔진, 자동 감지 시스템으로 분할",
-			"reasoning": "프로세스 관리와 보안 샌드박싱, 다양한 에이전트 런타임 감지, 캐싱과 타임아웃 처리 등 복잡한 시스템 레벨 작업 포함"
-		},
-		{
-			"taskId": 6,
-			"taskTitle": "내부 이슈·Linear 읽기전용 통합",
-			"complexityScore": 6,
-			"recommendedSubtasks": 6,
-			"expansionPrompt": "Prisma 이슈 모델 구현, Linear GraphQL 클라이언트 설정, 외부 이슈 링크 시스템, 데이터 머지 로직, 캐싱 전략, UI 통합 렌더링으로 구분",
-			"reasoning": "외부 API 통합과 GraphQL 처리, 두 시스템 간 데이터 동기화와 캐싱 전략이 필요하며 중간 이상의 복잡도"
-		},
-		{
-			"taskId": 7,
-			"taskTitle": "Git 워크트리 라이프사이클 관리",
-			"complexityScore": 8,
-			"recommendedSubtasks": 8,
-			"expansionPrompt": "워크트리 생성 로직, PR 중복 검사, 메타데이터 저장, 상태 모니터링 스케줄러, 락 메커니즘 구현, 자동 정리 시스템, CLI 도구, 다중 프로세스 경합 방지로 세분화",
-			"reasoning": "Git 워크트리 관리는 복잡한 Git 작업, 동시성 제어, 스케줄러 구현, 상태 추적 등 여러 시스템 컴포넌트가 필요"
-		},
-		{
-			"taskId": 8,
-			"taskTitle": "코드 에이전트 실행 엔진·SSE 스트리밍",
-			"complexityScore": 7,
-			"recommendedSubtasks": 7,
-			"expansionPrompt": "Fastify SSE 플러그인 설정, 실행 컨트롤러, 스트림 처리, 재시도 로직, 클라이언트 재연결 처리, Git diff 수집, 실패 복구 메커니즘으로 분할",
-			"reasoning": "실시간 스트리밍, 비동기 실행 관리, 재시도와 복구 로직, SSE 연결 관리 등 복잡한 실시간 시스템 구현"
-		},
-		{
-			"taskId": 9,
-			"taskTitle": "Pull Request 생성·상태 동기화",
-			"complexityScore": 5,
-			"recommendedSubtasks": 5,
-			"expansionPrompt": "GitHub API 통합, PR 템플릿 시스템, 이슈-PR 매핑, 중복 방지 로직, 웹훅 수신 및 상태 동기화로 나누어 구현",
-			"reasoning": "GitHub API 통합은 표준적이며, PR 생성과 웹훅 처리는 중간 복잡도의 작업"
-		},
-		{
-			"taskId": 10,
-			"taskTitle": "고성능 Diff Viewer",
-			"complexityScore": 7,
-			"recommendedSubtasks": 7,
-			"expansionPrompt": "Git diff API 엔드포인트, JSON 변환 로직, React Virtuoso 통합, 가상 스크롤 구현, Web Worker 신택스 하이라이팅, 뷰 모드 전환, 성능 최적화로 분할",
-			"reasoning": "대용량 diff 처리, 가상 스크롤링, Web Worker 활용, 성능 최적화 등 프론트엔드 고급 기술이 필요"
-		},
-		{
-			"taskId": 11,
-			"taskTitle": "Kanban 보드·드래그앤드롭 UX",
-			"complexityScore": 6,
-			"recommendedSubtasks": 6,
-			"expansionPrompt": "@dnd-kit 통합, 칸반 컬럼 컴포넌트, 드래그 핸들러, 키보드 접근성, Optimistic UI 업데이트, 실시간 동기화로 구분",
-			"reasoning": "드래그앤드롭 UX, 접근성 요구사항, 실시간 업데이트와 Optimistic UI 패턴 구현이 필요"
-		},
-		{
-			"taskId": 12,
-			"taskTitle": "상태 머신·이벤트 버스 구현",
-			"complexityScore": 8,
-			"recommendedSubtasks": 8,
-			"expansionPrompt": "FSM 설계, 전이 규칙 엔진, 이벤트 버스 아키텍처, Pub/Sub 통합, Event Sourcing, 보상 트랜잭션, 플러거블 어댑터, 재시도 메커니즘으로 세분화",
-			"reasoning": "상태 머신 설계, 이벤트 기반 아키텍처, 분산 시스템 패턴(Saga, Event Sourcing) 등 고급 아키텍처 패턴 구현"
-		},
-		{
-			"taskId": 13,
-			"taskTitle": "링크아웃/외부 도구 URL 빌더",
-			"complexityScore": 3,
-			"recommendedSubtasks": 4,
-			"expansionPrompt": "URL 템플릿 엔진, 설정 파싱, UI 링크 컴포넌트, 클립보드 복사 기능으로 분할",
-			"reasoning": "간단한 템플릿 처리와 UI 통합으로 복잡도가 낮음"
-		},
-		{
-			"taskId": 14,
-			"taskTitle": "관측성·에러 복구 체계",
-			"complexityScore": 7,
-			"recommendedSubtasks": 8,
-			"expansionPrompt": "Diagnostics Channel 설정, 구조화 로깅 시스템, Circuit Breaker 구현, 헬스체크 엔드포인트, 에러 분류 및 재시도, 캐시 폴백, 텔레메트리 통합, 모니터링 대시보드로 분할",
-			"reasoning": "종합적인 관측성 시스템 구축으로 로깅, 모니터링, 복구 전략, Circuit Breaker 등 여러 복잡한 컴포넌트 필요"
-		},
-		{
-			"taskId": 15,
-			"taskTitle": "보안·비밀·권한 제어",
-			"complexityScore": 6,
-			"recommendedSubtasks": 6,
-			"expansionPrompt": "시크릿 관리 시스템, Keychain 통합, Node Permission Model 적용, 환경 변수 주입, 권한 화이트리스트, 시크릿 회전 스크립트로 구분",
-			"reasoning": "보안 관련 기능으로 Node.js 권한 모델, 시크릿 관리, 다양한 보안 도구 통합이 필요하며 신중한 구현 필요"
-		}
-	]
+  "meta": {
+    "generatedAt": "2025-11-11T16:07:34.711Z",
+    "tasksAnalyzed": 15,
+    "totalTasks": 15,
+    "analysisCount": 15,
+    "thresholdScore": 5,
+    "projectName": "Taskmaster",
+    "usedResearch": false
+  },
+  "complexityAnalysis": [
+    {
+      "taskId": 1,
+      "taskTitle": "런타임/모노레포 초기화 및 환경 표준화",
+      "complexityScore": 7,
+      "recommendedSubtasks": 8,
+      "expansionPrompt": "PNPM workspace 구조 초기화, Next.js 15와 Fastify 5 앱 생성, Turborepo/Nx 빌드 파이프라인 구성, TypeScript 공통 설정, ESLint/Prettier 표준화, Node 22 버전 고정, Git hooks 설정, 환경 변수 템플릿 작성 등의 세부 작업으로 나누어 구현",
+      "reasoning": "새 프로젝트 초기 설정으로 여러 도구와 프레임워크 통합이 필요하며, 모노레포 구조 설계와 빌드 도구 구성이 복잡함. Next.js 15와 Fastify 5의 최신 버전 통합과 Turborepo 파이프라인 설정이 핵심"
+    },
+    {
+      "taskId": 2,
+      "taskTitle": "Prisma·SQLite 스키마 및 WAL2 성능 구성",
+      "complexityScore": 6,
+      "recommendedSubtasks": 6,
+      "expansionPrompt": "Prisma 스키마 설계 (Project, Issue, Worktree, Agent 모델), SQLite WAL2 모드 구성, 마이그레이션 파이프라인 설정, Nx 타겟 통합, 시드 데이터 스크립트 작성, 데이터베이스 경로 구성 등으로 분할",
+      "reasoning": "데이터베이스 스키마 설계와 Prisma 설정은 중간 복잡도이지만, SQLite WAL2 성능 최적화와 마이그레이션 파이프라인 통합이 추가 복잡도를 더함"
+    },
+    {
+      "taskId": 3,
+      "taskTitle": "프로젝트 관리 API (CRUD·헬스·설정)",
+      "complexityScore": 5,
+      "recommendedSubtasks": 5,
+      "expansionPrompt": "Fastify 라우트 구조 설계, 프로젝트 CRUD 엔드포인트, Zod 스키마 검증, 서비스 계층 구현, 헬스체크 엔드포인트와 이벤트 버스 연동으로 구분",
+      "reasoning": "표준 REST API 구현으로 복잡도는 중간 수준. Fastify 5와 Prisma 통합, 이벤트 버스 연동이 주요 기술 과제"
+    },
+    {
+      "taskId": 4,
+      "taskTitle": "프로젝트 중심 LNB·내비게이션 UI",
+      "complexityScore": 6,
+      "recommendedSubtasks": 6,
+      "expansionPrompt": "Next.js 서버 컴포넌트 구조, Virtua 가상 스크롤 통합, 프로젝트 트리 컴포넌트, 에이전트 배지 시스템, Command Palette 단축키, 로컬 스토리지 상태 관리로 나누어 구현",
+      "reasoning": "React 19와 Next.js 15의 서버 컴포넌트 활용, 가상 스크롤링으로 대규모 리스트 처리, 복잡한 UI 상태 관리가 필요"
+    },
+    {
+      "taskId": 5,
+      "taskTitle": "코드 에이전트 디스커버리·헬스 체크 파이프라인",
+      "complexityScore": 7,
+      "recommendedSubtasks": 7,
+      "expansionPrompt": "에이전트 디스커버리 로직, child_process 안전 실행, Node Permission Model 적용, Redis 캐싱 레이어, 헬스체크 엔드포인트, 우선순위 규칙 엔진, 자동 감지 시스템으로 분할",
+      "reasoning": "프로세스 관리와 보안 샌드박싱, 다양한 에이전트 런타임 감지, 캐싱과 타임아웃 처리 등 복잡한 시스템 레벨 작업 포함"
+    },
+    {
+      "taskId": 6,
+      "taskTitle": "내부 이슈·Linear 읽기전용 통합",
+      "complexityScore": 6,
+      "recommendedSubtasks": 6,
+      "expansionPrompt": "Prisma 이슈 모델 구현, Linear GraphQL 클라이언트 설정, 외부 이슈 링크 시스템, 데이터 머지 로직, 캐싱 전략, UI 통합 렌더링으로 구분",
+      "reasoning": "외부 API 통합과 GraphQL 처리, 두 시스템 간 데이터 동기화와 캐싱 전략이 필요하며 중간 이상의 복잡도"
+    },
+    {
+      "taskId": 7,
+      "taskTitle": "Git 워크트리 라이프사이클 관리",
+      "complexityScore": 8,
+      "recommendedSubtasks": 8,
+      "expansionPrompt": "워크트리 생성 로직, PR 중복 검사, 메타데이터 저장, 상태 모니터링 스케줄러, 락 메커니즘 구현, 자동 정리 시스템, CLI 도구, 다중 프로세스 경합 방지로 세분화",
+      "reasoning": "Git 워크트리 관리는 복잡한 Git 작업, 동시성 제어, 스케줄러 구현, 상태 추적 등 여러 시스템 컴포넌트가 필요"
+    },
+    {
+      "taskId": 8,
+      "taskTitle": "코드 에이전트 실행 엔진·SSE 스트리밍",
+      "complexityScore": 7,
+      "recommendedSubtasks": 7,
+      "expansionPrompt": "Fastify SSE 플러그인 설정, 실행 컨트롤러, 스트림 처리, 재시도 로직, 클라이언트 재연결 처리, Git diff 수집, 실패 복구 메커니즘으로 분할",
+      "reasoning": "실시간 스트리밍, 비동기 실행 관리, 재시도와 복구 로직, SSE 연결 관리 등 복잡한 실시간 시스템 구현"
+    },
+    {
+      "taskId": 9,
+      "taskTitle": "Pull Request 생성·상태 동기화",
+      "complexityScore": 5,
+      "recommendedSubtasks": 5,
+      "expansionPrompt": "GitHub API 통합, PR 템플릿 시스템, 이슈-PR 매핑, 중복 방지 로직, 웹훅 수신 및 상태 동기화로 나누어 구현",
+      "reasoning": "GitHub API 통합은 표준적이며, PR 생성과 웹훅 처리는 중간 복잡도의 작업"
+    },
+    {
+      "taskId": 10,
+      "taskTitle": "고성능 Diff Viewer",
+      "complexityScore": 7,
+      "recommendedSubtasks": 7,
+      "expansionPrompt": "Git diff API 엔드포인트, JSON 변환 로직, React Virtuoso 통합, 가상 스크롤 구현, Web Worker 신택스 하이라이팅, 뷰 모드 전환, 성능 최적화로 분할",
+      "reasoning": "대용량 diff 처리, 가상 스크롤링, Web Worker 활용, 성능 최적화 등 프론트엔드 고급 기술이 필요"
+    },
+    {
+      "taskId": 11,
+      "taskTitle": "Kanban 보드·드래그앤드롭 UX",
+      "complexityScore": 6,
+      "recommendedSubtasks": 6,
+      "expansionPrompt": "@dnd-kit 통합, 칸반 컬럼 컴포넌트, 드래그 핸들러, 키보드 접근성, Optimistic UI 업데이트, 실시간 동기화로 구분",
+      "reasoning": "드래그앤드롭 UX, 접근성 요구사항, 실시간 업데이트와 Optimistic UI 패턴 구현이 필요"
+    },
+    {
+      "taskId": 12,
+      "taskTitle": "상태 머신·이벤트 버스 구현",
+      "complexityScore": 8,
+      "recommendedSubtasks": 8,
+      "expansionPrompt": "FSM 설계, 전이 규칙 엔진, 이벤트 버스 아키텍처, Pub/Sub 통합, Event Sourcing, 보상 트랜잭션, 플러거블 어댑터, 재시도 메커니즘으로 세분화",
+      "reasoning": "상태 머신 설계, 이벤트 기반 아키텍처, 분산 시스템 패턴(Saga, Event Sourcing) 등 고급 아키텍처 패턴 구현"
+    },
+    {
+      "taskId": 13,
+      "taskTitle": "링크아웃/외부 도구 URL 빌더",
+      "complexityScore": 3,
+      "recommendedSubtasks": 4,
+      "expansionPrompt": "URL 템플릿 엔진, 설정 파싱, UI 링크 컴포넌트, 클립보드 복사 기능으로 분할",
+      "reasoning": "간단한 템플릿 처리와 UI 통합으로 복잡도가 낮음"
+    },
+    {
+      "taskId": 14,
+      "taskTitle": "관측성·에러 복구 체계",
+      "complexityScore": 7,
+      "recommendedSubtasks": 8,
+      "expansionPrompt": "Diagnostics Channel 설정, 구조화 로깅 시스템, Circuit Breaker 구현, 헬스체크 엔드포인트, 에러 분류 및 재시도, 캐시 폴백, 텔레메트리 통합, 모니터링 대시보드로 분할",
+      "reasoning": "종합적인 관측성 시스템 구축으로 로깅, 모니터링, 복구 전략, Circuit Breaker 등 여러 복잡한 컴포넌트 필요"
+    },
+    {
+      "taskId": 15,
+      "taskTitle": "보안·비밀·권한 제어",
+      "complexityScore": 6,
+      "recommendedSubtasks": 6,
+      "expansionPrompt": "시크릿 관리 시스템, Keychain 통합, Node Permission Model 적용, 환경 변수 주입, 권한 화이트리스트, 시크릿 회전 스크립트로 구분",
+      "reasoning": "보안 관련 기능으로 Node.js 권한 모델, 시크릿 관리, 다양한 보안 도구 통합이 필요하며 신중한 구현 필요"
+    }
+  ]
 }
