@@ -1,0 +1,18 @@
+{
+  "extends": "@jellos/typescript-config/base.json",
+  "compilerOptions": {
+    "paths": {
+      "@jellos/web/*": ["./apps/web/*"],
+      "@jellos/api/*": ["./apps/api/src/*"]
+    }
+  },
+  "files": [],
+  "references": [
+    {
+      "path": "./apps/web"
+    },
+    {
+      "path": "./apps/api"
+    }
+  ]
+}
