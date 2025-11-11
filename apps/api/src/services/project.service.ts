@@ -1,4 +1,5 @@
 import { type Project } from '../lib/db';
+import { eventBus } from '../lib/event-bus';
 import { ProjectRepository } from '../repositories/project.repository';
 
 // Business logic errors
@@ -43,8 +44,8 @@ export class ProjectService {
     // Create the project
     const project = await this.repository.create(data);
 
-    // TODO: Emit ProjectCreated event for event bus (Subtask 3.5)
-    // this.eventBus.emit('project.created', { projectId: project.id });
+    // Emit ProjectCreated event
+    eventBus.emitEvent('project.created', { projectId: project.id });
 
     return project;
   }
@@ -95,8 +96,8 @@ export class ProjectService {
       throw new ProjectNotFoundError(id);
     }
 
-    // TODO: Emit ProjectUpdated event
-    // this.eventBus.emit('project.updated', { projectId: id, changes: data });
+    // Emit ProjectUpdated event
+    eventBus.emitEvent('project.updated', { projectId: id, changes: data });
 
     return updated;
   }
@@ -114,8 +115,8 @@ export class ProjectService {
       throw new ProjectNotFoundError(id);
     }
 
-    // TODO: Emit ProjectDeleted event
-    // this.eventBus.emit('project.deleted', { projectId: id });
+    // Emit ProjectDeleted event
+    eventBus.emitEvent('project.deleted', { projectId: id });
   }
 
   /**
