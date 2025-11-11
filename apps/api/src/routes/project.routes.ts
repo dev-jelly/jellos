@@ -3,7 +3,11 @@ import fp from 'fastify-plugin';
 import { type ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 
-import { ProjectRepository } from '../repositories/project.repository';
+import {
+  ProjectService,
+  ProjectAlreadyExistsError,
+  ProjectNotFoundError,
+} from '../services/project.service';
 
 // Zod schemas for validation
 const createProjectSchema = z.object({
@@ -46,7 +50,7 @@ const projectListResponseSchema = z.object({
 });
 
 const projectRoutes: FastifyPluginAsync = async (fastify) => {
-  const projectRepo = new ProjectRepository();
+  const projectService = new ProjectService();
 
   // Create new project
   fastify.post(
@@ -60,8 +64,20 @@ const projectRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request, reply) => {
-      const project = await projectRepo.create(request.body as any);
-      return reply.status(201).send(project);
+      try {
+        const project = await projectService.createProject(
+          request.body as any
+        );
+        return reply.status(201).send(project);
+      } catch (error) {
+        if (error instanceof ProjectAlreadyExistsError) {
+          return (reply as any).code(409).send({
+            error: 'Conflict',
+            message: error.message,
+          });
+        }
+        throw error;
+      }
     }
   );
 
@@ -78,12 +94,11 @@ const projectRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (request) => {
       const { page, limit } = request.query as any;
-      const skip = (page - 1) * limit;
 
-      const [projects, total] = await Promise.all([
-        projectRepo.findAll(skip, limit),
-        projectRepo.count(),
-      ]);
+      const { data: projects, total } = await projectService.listProjects(
+        page,
+        limit
+      );
 
       return {
         data: projects,
@@ -105,17 +120,19 @@ const projectRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request, reply) => {
-      const { id } = request.params as any;
-      const project = await projectRepo.findById(id);
-
-      if (!project) {
-        return reply.code(404).send({
-          error: 'NotFound',
-          message: 'Project not found',
-        });
+      try {
+        const { id } = request.params as any;
+        const project = await projectService.getProjectById(id);
+        return project;
+      } catch (error) {
+        if (error instanceof ProjectNotFoundError) {
+          return reply.code(404).send({
+            error: 'NotFound',
+            message: error.message,
+          });
+        }
+        throw error;
       }
-
-      return project;
     }
   );
 
@@ -129,17 +146,22 @@ const projectRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request, reply) => {
-      const { id } = request.params as any;
-      const project = await projectRepo.update(id, request.body as any);
-
-      if (!project) {
-        return reply.code(404).send({
-          error: 'NotFound',
-          message: 'Project not found',
-        });
+      try {
+        const { id } = request.params as any;
+        const project = await projectService.updateProject(
+          id,
+          request.body as any
+        );
+        return project;
+      } catch (error) {
+        if (error instanceof ProjectNotFoundError) {
+          return reply.code(404).send({
+            error: 'NotFound',
+            message: error.message,
+          });
+        }
+        throw error;
       }
-
-      return project;
     }
   );
 
@@ -152,17 +174,19 @@ const projectRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request, reply) => {
-      const { id } = request.params as any;
-      const deleted = await projectRepo.delete(id);
-
-      if (!deleted) {
-        return reply.code(404).send({
-          error: 'NotFound',
-          message: 'Project not found',
-        });
+      try {
+        const { id } = request.params as any;
+        await projectService.deleteProject(id);
+        return reply.code(204).send();
+      } catch (error) {
+        if (error instanceof ProjectNotFoundError) {
+          return reply.code(404).send({
+            error: 'NotFound',
+            message: error.message,
+          });
+        }
+        throw error;
       }
-
-      return reply.code(204).send();
     }
   );
 };
