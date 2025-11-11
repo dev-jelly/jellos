@@ -9,3 +9,131 @@ datasource db {
   provider = "sqlite"
   url      = env("DATABASE_URL")
 }
+
+// ============================================================================
+// Core Domain Models
+// ============================================================================
+
+/// Project represents a local development project directory
+model Project {
+  id            String   @id @default(cuid())
+  name          String
+  localPath     String   @unique
+  defaultBranch String   @default("main")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  issues    Issue[]
+  worktrees Worktree[]
+  agents    CodeAgentRuntime[]
+
+  @@map("projects")
+}
+
+/// Issue represents a task or feature to be worked on
+model Issue {
+  id          String   @id @default(cuid())
+  projectId   String
+  title       String
+  description String?
+  status      String   @default("TODO") // TODO, IN_PROGRESS, IN_REVIEW, MERGED, DEPLOYED, REJECTED, CANCELED
+  priority    String   @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  project       Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  worktrees     Worktree[]
+  externalLinks ExternalIssueLink[]
+  comments      IssueComment[]
+
+  @@index([projectId])
+  @@index([status])
+  @@map("issues")
+}
+
+/// Worktree represents a git worktree for isolated development
+model Worktree {
+  id        String   @id @default(cuid())
+  projectId String
+  issueId   String?
+  path      String
+  branch    String   @unique
+  status    String   @default("ACTIVE") // ACTIVE, STALE, REMOVED
+  createdAt DateTime @default(now())
+
+  // Relations
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  issue   Issue?  @relation(fields: [issueId], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
+  @@index([issueId])
+  @@map("worktrees")
+}
+
+/// CodeAgentRuntime represents a discovered or configured code agent
+model CodeAgentRuntime {
+  id           String    @id @default(cuid())
+  projectId    String?
+  externalId   String // Unique identifier from agent itself
+  label        String
+  cmd          String
+  args         String // JSON array of arguments
+  envMask      String // JSON array of environment variable names
+  version      String?
+  path         String?
+  healthStatus String    @default("unknown")
+  lastChecked  DateTime?
+  enabled      Boolean   @default(true)
+  discoveredAt DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  // Relations
+  project Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, externalId])
+  @@index([projectId])
+  @@map("code_agent_runtimes")
+}
+
+/// ExternalIssueLink connects internal issues to external issue trackers
+model ExternalIssueLink {
+  id          String   @id @default(cuid())
+  issueId     String
+  provider    String // "linear", "github", etc.
+  externalId  String
+  externalUrl String
+  syncEnabled Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  // Relations
+  issue Issue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+
+  @@unique([issueId, provider])
+  @@index([externalId])
+  @@map("external_issue_links")
+}
+
+/// IssueComment represents a comment on an issue
+model IssueComment {
+  id        String   @id @default(cuid())
+  issueId   String
+  content   String
+  author    String
+  createdAt DateTime @default(now())
+
+  // Relations
+  issue Issue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+
+  @@index([issueId])
+  @@map("issue_comments")
+}
+
+// ============================================================================
+// Enums (SQLite doesn't support native enums - use String with validation)
+// ============================================================================
+
+// IssueStatus: TODO | IN_PROGRESS | IN_REVIEW | MERGED | DEPLOYED | REJECTED | CANCELED
+// IssuePriority: LOW | MEDIUM | HIGH | URGENT
+// WorktreeStatus: ACTIVE | STALE | REMOVED
