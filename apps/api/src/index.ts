@@ -1,41 +1,16 @@
-import Fastify from 'fastify';
-import cors from '@fastify/cors';
-
-const server = Fastify({
-  logger: {
-    transport: {
-      target: 'pino-pretty',
-      options: {
-        translateTime: 'HH:MM:ss Z',
-        ignore: 'pid,hostname',
-      },
-    },
-  },
-});
-
-// Register CORS
-await server.register(cors, {
-  origin: true,
-  credentials: true,
-});
-
-// Health check endpoint
-server.get('/health', async () => {
-  return { status: 'ok', timestamp: new Date().toISOString() };
-});
-
-// API routes
-server.get('/api', async () => {
-  return { message: 'Jellos API', version: '0.1.0' };
-});
+import { buildApp } from './app';
 
 const start = async () => {
   try {
+    const app = await buildApp();
     const port = Number(process.env.PORT) || 3001;
-    await server.listen({ port, host: '0.0.0.0' });
-    console.log(`Server listening on port ${port}`);
+    const host = process.env.HOST || '0.0.0.0';
+
+    await app.listen({ port, host });
+    app.log.info(`🚀 Server ready at http://${host}:${port}`);
+    app.log.info(`📊 Health check: http://${host}:${port}/health`);
   } catch (err) {
-    server.log.error(err);
+    console.error('Failed to start server:', err);
     process.exit(1);
   }
 };
