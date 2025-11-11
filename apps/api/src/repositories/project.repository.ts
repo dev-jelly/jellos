@@ -1,10 +1,16 @@
 import { prisma, type Project } from '../lib/db';
 
 export class ProjectRepository {
-  async findAll(): Promise<Project[]> {
+  async findAll(skip = 0, take = 20): Promise<Project[]> {
     return prisma.project.findMany({
       orderBy: { createdAt: 'desc' },
+      skip,
+      take,
     });
+  }
+
+  async count(): Promise<number> {
+    return prisma.project.count();
   }
 
   async findById(id: string): Promise<Project | null> {
@@ -44,17 +50,28 @@ export class ProjectRepository {
   async update(
     id: string,
     data: Partial<Pick<Project, 'name' | 'defaultBranch'>>
-  ): Promise<Project> {
-    return prisma.project.update({
-      where: { id },
-      data,
-    });
+  ): Promise<Project | null> {
+    try {
+      return await prisma.project.update({
+        where: { id },
+        data,
+      });
+    } catch (error) {
+      // Return null if project not found
+      return null;
+    }
   }
 
-  async delete(id: string): Promise<void> {
-    await prisma.project.delete({
-      where: { id },
-    });
+  async delete(id: string): Promise<boolean> {
+    try {
+      await prisma.project.delete({
+        where: { id },
+      });
+      return true;
+    } catch (error) {
+      // Return false if project not found
+      return false;
+    }
   }
 }
 
