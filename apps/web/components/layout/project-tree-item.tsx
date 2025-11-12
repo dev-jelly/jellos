@@ -4,6 +4,7 @@ import type { Project } from '@/lib/api';
 import Link from 'next/link';
 import { useState } from 'react';
 import { ChevronRightIcon, ChevronDownIcon } from '@heroicons/react/20/solid';
+import { AgentBadges } from '../agents/agent-badges';
 
 interface ProjectTreeItemProps {
   project: Project;
@@ -68,7 +69,14 @@ export function ProjectTreeItem({ project }: ProjectTreeItemProps) {
             </div>
           </div>
 
-          {/* Placeholder for future nested items (issues, worktrees, etc.) */}
+          {/* Agent Badges */}
+          {project.agents && project.agents.length > 0 && (
+            <div className="pl-4 py-2 border-t border-gray-100">
+              <AgentBadges agents={project.agents} projectId={project.id} />
+            </div>
+          )}
+
+          {/* Placeholder for future nested items (issues, worktrees) */}
           <div className="pl-4 py-1 text-xs text-gray-400">
             {/* Issues, Worktrees will be added here */}
           </div>

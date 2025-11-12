@@ -5,6 +5,23 @@
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
+export interface CodeAgentRuntime {
+  id: string;
+  projectId: string | null;
+  externalId: string;
+  label: string;
+  cmd: string;
+  args: string;
+  envMask: string;
+  version: string | null;
+  path: string | null;
+  healthStatus: string;
+  lastChecked: string | null;
+  enabled: boolean;
+  discoveredAt: string;
+  updatedAt: string;
+}
+
 export interface Project {
   id: string;
   name: string;
@@ -12,6 +29,7 @@ export interface Project {
   defaultBranch: string;
   createdAt: string;
   updatedAt: string;
+  agents?: CodeAgentRuntime[];
 }
 
 export interface PaginatedResponse<T> {

@@ -333,9 +333,10 @@
               3
             ],
             "details": "AgentBadges 컴포넌트를 개발해 각 프로젝트에 연결된 에이전트를 컬러풀한 배지로 표시한다. 글로벌 에이전트와 로컬 에이전트를 구분하고, read-only 섹션을 별도로 분리한다. 배지에 툴팁을 추가해 에이전트 상태와 설명을 표시하고, 에이전트 타입별로 고유한 색상과 아이콘을 할당한다.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "다양한 에이전트 조합에 대한 스냅샷 테스트를 수행하고, 배지 호버 시 툴팁이 정상적으로 표시되는지 인터랙션 테스트를 진행한다.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-12T02:41:41.264Z"
           },
           {
             "id": 5,
@@ -367,7 +368,7 @@
         "complexity": 6,
         "recommendedSubtasks": 6,
         "expansionPrompt": "Next.js 서버 컴포넌트 구조, Virtua 가상 스크롤 통합, 프로젝트 트리 컴포넌트, 에이전트 배지 시스템, Command Palette 단축키, 로컬 스토리지 상태 관리로 나누어 구현",
-        "updatedAt": "2025-11-12T02:35:23.403Z"
+        "updatedAt": "2025-11-12T02:41:41.264Z"
       },
       {
         "id": "5",
@@ -1388,7 +1389,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2025-11-12T02:35:23.404Z",
+      "lastModified": "2025-11-12T02:41:41.265Z",
       "taskCount": 15,
       "completedCount": 3,
       "tags": [
