@@ -21,6 +21,13 @@ import {
   RetryableError,
 } from '../utils/retry';
 import { getGitService } from './git.service';
+import { getRecoveryService, type RecoveryResult } from './recovery.service';
+import {
+  ProcessExecutionError,
+  WorktreeError,
+  GitOperationError,
+  TimeoutError,
+} from '../types/errors';
 
 export interface ProcessStreamOptions {
   executionId: string;
@@ -216,10 +223,32 @@ export class AgentAdapterService {
 
       // Set timeout
       if (timeout && timeout > 0) {
-        timeoutHandle = setTimeout(() => {
+        timeoutHandle = setTimeout(async () => {
           if (proc && !isComplete) {
+            const startTime = Date.now();
             proc.kill('SIGTERM');
-            executionRepository.markAsTimeout(executionId);
+
+            // Attempt cleanup and recovery
+            const recoveryService = getRecoveryService();
+            try {
+              await recoveryService.recover(
+                new TimeoutError('Execution timeout exceeded', {
+                  timeoutMs: timeout,
+                  elapsedMs: Date.now() - startTime,
+                  recoverable: false,
+                }),
+                {
+                  executionId,
+                  worktreePath: cwd,
+                  processId: proc.pid,
+                  agentId: agent.id,
+                }
+              );
+            } catch (recoveryError) {
+              console.error('Timeout recovery failed:', recoveryError);
+            }
+
+            await executionRepository.markAsTimeout(executionId);
           }
         }, timeout);
       }
@@ -295,7 +324,38 @@ export class AgentAdapterService {
       isComplete = true;
 
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      await executionRepository.markAsFailed(executionId, errorMessage);
+
+      // Attempt recovery before marking as failed
+      const recoveryService = getRecoveryService();
+      const recoveryResult = await recoveryService.recover(
+        error instanceof Error ? error : new Error(errorMessage),
+        {
+          executionId,
+          worktreePath: cwd,
+          processId: proc?.pid,
+          agentId: agent.id,
+        }
+      );
+
+      // Yield recovery event
+      yield {
+        type: StreamEventType.RECOVERY,
+        data: {
+          success: recoveryResult.success,
+          message: recoveryResult.message,
+          actionsTaken: recoveryResult.actionsTaken,
+          needsManualIntervention: recoveryResult.needsManualIntervention,
+        },
+        timestamp: new Date(),
+        executionId,
+      };
+
+      // Mark as failed with recovery information
+      const failureMessage = recoveryResult.success
+        ? `${errorMessage} (recovered: ${recoveryResult.message})`
+        : `${errorMessage} (recovery failed: ${recoveryResult.message})`;
+
+      await executionRepository.markAsFailed(executionId, failureMessage);
 
       // Record failure in circuit breaker
       circuitBreaker.recordFailure();
@@ -305,6 +365,11 @@ export class AgentAdapterService {
         data: {
           message: errorMessage,
           circuitBreakerState: circuitBreaker.getState(),
+          recovery: {
+            attempted: true,
+            success: recoveryResult.success,
+            needsManualIntervention: recoveryResult.needsManualIntervention,
+          },
         },
         timestamp: new Date(),
         executionId,

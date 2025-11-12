@@ -147,6 +147,18 @@ export class NonRetryableError extends Error {
 export function classifyError(error: Error): ErrorCategory {
   const message = error.message.toLowerCase();
 
+  // Check if error has explicit category (from our custom error types)
+  if ('category' in error && typeof (error as any).category === 'string') {
+    return (error as any).category as ErrorCategory;
+  }
+
+  // Check if error has recoverable flag
+  if ('recoverable' in error && typeof (error as any).recoverable === 'boolean') {
+    return (error as any).recoverable
+      ? ErrorCategory.RETRYABLE
+      : ErrorCategory.NON_RETRYABLE;
+  }
+
   // Network errors - retryable
   if (
     message.includes('econnrefused') ||

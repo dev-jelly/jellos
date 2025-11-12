@@ -20,6 +20,7 @@ export enum StreamEventType {
   HEARTBEAT = 'heartbeat',
   METADATA = 'metadata',
   RETRY = 'retry',
+  RECOVERY = 'recovery',
 }
 
 export interface ExecutionContext {
