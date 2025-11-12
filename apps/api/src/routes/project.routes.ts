@@ -8,6 +8,16 @@ import {
   ProjectAlreadyExistsError,
   ProjectNotFoundError,
 } from '../services/project.service';
+import { discoverAgents } from '../lib/agent-discovery/discovery-service';
+import {
+  performHealthCheck,
+  HealthStatus,
+} from '../lib/agent-discovery/health-check';
+import {
+  getCachedHealthCheck,
+  setCachedHealthCheck,
+  invalidateProjectHealthChecks,
+} from '../lib/cache/health-check-cache';
 
 // Zod schemas for validation
 const createProjectSchema = z.object({
@@ -47,6 +57,35 @@ const projectListResponseSchema = z.object({
     limit: z.number(),
     total: z.number(),
   }),
+});
+
+// Agent health check schemas
+const agentHealthResponseSchema = z.object({
+  id: z.string(),
+  externalId: z.string(),
+  label: z.string(),
+  cmd: z.string(),
+  args: z.array(z.string()),
+  envMask: z.array(z.string()),
+  version: z.string().optional(),
+  path: z.string().optional(),
+  source: z.string(),
+  priority: z.number(),
+  health: z
+    .object({
+      status: z.enum(['healthy', 'degraded', 'unhealthy', 'unknown']),
+      version: z.string().optional(),
+      responseTime: z.number(),
+      lastChecked: z.date(),
+      error: z.string().optional(),
+    })
+    .optional(),
+});
+
+const agentListResponseSchema = z.object({
+  data: z.array(agentHealthResponseSchema),
+  projectId: z.string(),
+  totalAgents: z.number(),
 });
 
 const projectRoutes: FastifyPluginAsync = async (fastify) => {
@@ -178,6 +217,145 @@ const projectRoutes: FastifyPluginAsync = async (fastify) => {
         const { id } = request.params as any;
         await projectService.deleteProject(id);
         return reply.code(204).send();
+      } catch (error) {
+        if (error instanceof ProjectNotFoundError) {
+          return reply.code(404).send({
+            error: 'NotFound',
+            message: error.message,
+          });
+        }
+        throw error;
+      }
+    }
+  );
+
+  // Get agents for project with health checks
+  fastify.get(
+    '/:id/agents',
+    {
+      schema: {
+        params: projectIdSchema,
+        response: {
+          200: agentListResponseSchema,
+          404: z.object({
+            error: z.string(),
+            message: z.string(),
+          }),
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        const { id } = request.params as any;
+
+        // Verify project exists
+        const project = await projectService.getProjectById(id);
+
+        // Discover agents for this project
+        const agents = await discoverAgents(project.localPath);
+
+        // Get health check for each agent (from cache or perform new check)
+        const agentsWithHealth = await Promise.all(
+          agents.map(async (agent) => {
+            // Check cache first
+            let health = await getCachedHealthCheck(id, agent.externalId);
+
+            // If not cached, perform health check
+            if (!health) {
+              health = await performHealthCheck(agent);
+              // Cache the result
+              await setCachedHealthCheck(id, agent.externalId, health);
+            }
+
+            return {
+              id: `${id}:${agent.externalId}`,
+              externalId: agent.externalId,
+              label: agent.label,
+              cmd: agent.cmd,
+              args: agent.args,
+              envMask: agent.envMask,
+              version: agent.version,
+              path: agent.path,
+              source: agent.source,
+              priority: agent.priority,
+              health,
+            };
+          })
+        );
+
+        return {
+          data: agentsWithHealth,
+          projectId: id,
+          totalAgents: agentsWithHealth.length,
+        };
+      } catch (error) {
+        if (error instanceof ProjectNotFoundError) {
+          return reply.code(404).send({
+            error: 'NotFound',
+            message: error.message,
+          });
+        }
+        throw error;
+      }
+    }
+  );
+
+  // Refresh agent health checks for project
+  fastify.post(
+    '/:id/agents/refresh',
+    {
+      schema: {
+        params: projectIdSchema,
+        response: {
+          200: agentListResponseSchema,
+          404: z.object({
+            error: z.string(),
+            message: z.string(),
+          }),
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        const { id } = request.params as any;
+
+        // Verify project exists
+        const project = await projectService.getProjectById(id);
+
+        // Invalidate all cached health checks for this project
+        await invalidateProjectHealthChecks(id);
+
+        // Discover agents for this project
+        const agents = await discoverAgents(project.localPath);
+
+        // Perform fresh health checks for all agents
+        const agentsWithHealth = await Promise.all(
+          agents.map(async (agent) => {
+            const health = await performHealthCheck(agent);
+            // Cache the new result
+            await setCachedHealthCheck(id, agent.externalId, health);
+
+            return {
+              id: `${id}:${agent.externalId}`,
+              externalId: agent.externalId,
+              label: agent.label,
+              cmd: agent.cmd,
+              args: agent.args,
+              envMask: agent.envMask,
+              version: agent.version,
+              path: agent.path,
+              source: agent.source,
+              priority: agent.priority,
+              health,
+            };
+          })
+        );
+
+        return {
+          data: agentsWithHealth,
+          projectId: id,
+          totalAgents: agentsWithHealth.length,
+        };
       } catch (error) {
         if (error instanceof ProjectNotFoundError) {
           return reply.code(404).send({
