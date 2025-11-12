@@ -726,10 +726,10 @@
               2
             ],
             "details": "30초마다 heartbeat 이벤트를 전송해 연결을 유지하고, 실행이 5분을 초과하면 SIGTERM으로 종료한다. 클라이언트가 Last-Event-ID 헤더와 함께 재연결하면 해당 ID 이후의 이벤트를 Redis나 메모리 버퍼에서 재전송한다. AbortController를 사용해 클라이언트 연결 끊김을 감지하고 리소스를 정리한다.",
-            "status": "in-progress",
+            "status": "done",
             "testStrategy": "setTimeout으로 타임아웃 시나리오를 테스트하고, Last-Event-ID 재연결 시 올바른 이벤트가 재전송되는지 확인한다.",
             "parentId": "undefined",
-            "updatedAt": "2025-11-12T09:08:30.743Z"
+            "updatedAt": "2025-11-12T09:10:23.948Z"
           },
           {
             "id": 4,
@@ -739,9 +739,10 @@
               2
             ],
             "details": "apps/api/src/utils/retry.ts에서 exponentialBackoff 함수를 구현한다. 초기 지연 1초, 최대 지연 30초, 지터 0-1초를 적용하며, 재시도 가능한 에러(네트워크, 타임아웃)와 불가능한 에러(권한, 문법)를 구분한다. 재시도 시마다 SSE로 retry 이벤트를 전송해 클라이언트에 상태를 알린다. Circuit Breaker 패턴을 적용해 연속 실패 시 일시적으로 요청을 차단한다.",
-            "status": "pending",
+            "status": "in-progress",
             "testStrategy": "다양한 실패 시나리오에서 재시도 횟수와 지연 시간을 검증하고, Circuit Breaker 상태 전환을 테스트한다.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-12T09:11:31.623Z"
           },
           {
             "id": 5,
@@ -785,7 +786,7 @@
         "complexity": 7,
         "recommendedSubtasks": 7,
         "expansionPrompt": "Fastify SSE 플러그인 설정, 실행 컨트롤러, 스트림 처리, 재시도 로직, 클라이언트 재연결 처리, Git diff 수집, 실패 복구 메커니즘으로 분할",
-        "updatedAt": "2025-11-12T09:08:30.743Z"
+        "updatedAt": "2025-11-12T09:11:31.623Z"
       },
       {
         "id": "9",
@@ -1415,7 +1416,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2025-11-12T09:08:30.745Z",
+      "lastModified": "2025-11-12T09:11:31.624Z",
       "taskCount": 15,
       "completedCount": 7,
       "tags": [

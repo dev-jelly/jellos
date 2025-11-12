@@ -14,6 +14,12 @@ import {
   type AgentExecuteOptions,
   type ExecutionMetadata,
 } from '../types/agent-execution';
+import {
+  withRetry,
+  CircuitBreaker,
+  type RetryOptions,
+  RetryableError,
+} from '../utils/retry';
 
 export interface ProcessStreamOptions {
   executionId: string;
@@ -30,6 +36,7 @@ export interface ProcessStreamOptions {
 export class AgentAdapterService {
   private activeProcesses = new Map<string, ChildProcess>();
   private heartbeatIntervals = new Map<string, NodeJS.Timeout>();
+  private circuitBreakers = new Map<string, CircuitBreaker>();
 
   /**
    * Execute an agent and return async generator for streaming output
@@ -65,6 +72,70 @@ export class AgentAdapterService {
   }
 
   /**
+   * Get or create circuit breaker for agent
+   */
+  private getCircuitBreaker(agentId: string): CircuitBreaker {
+    if (!this.circuitBreakers.has(agentId)) {
+      this.circuitBreakers.set(agentId, new CircuitBreaker({
+        failureThreshold: 5,
+        resetTimeoutMs: 60000,
+      }));
+    }
+    return this.circuitBreakers.get(agentId)!;
+  }
+
+  /**
+   * Spawn process with retry logic
+   */
+  private async spawnProcessWithRetry(
+    cmd: string,
+    args: string[],
+    options: { cwd?: string; env?: Record<string, string> },
+    retryCallback?: (attempt: number, error: Error, delayMs: number) => Promise<void>
+  ): Promise<ChildProcess> {
+    return withRetry(
+      async () => {
+        return new Promise<ChildProcess>((resolve, reject) => {
+          const proc = spawn(cmd, args, {
+            cwd: options.cwd || process.cwd(),
+            env: { ...process.env, ...options.env },
+            stdio: ['ignore', 'pipe', 'pipe'],
+          });
+
+          if (!proc.pid) {
+            reject(new RetryableError('Failed to spawn process'));
+            return;
+          }
+
+          // Verify process didn't immediately exit with error
+          let immediateError = false;
+
+          proc.on('error', (err) => {
+            if (!immediateError) {
+              immediateError = true;
+              reject(new RetryableError('Process spawn error', err as Error));
+            }
+          });
+
+          // Give process a moment to start
+          setTimeout(() => {
+            if (!immediateError) {
+              resolve(proc);
+            }
+          }, 100);
+        });
+      },
+      {
+        maxRetries: 3,
+        initialDelayMs: 1000,
+        maxDelayMs: 30000,
+        jitterMs: 1000,
+        onRetry: retryCallback,
+      }
+    );
+  }
+
+  /**
    * Stream process output as async generator
    */
   private async *streamProcess(options: ProcessStreamOptions): AsyncGenerator<StreamEvent> {
@@ -73,6 +144,7 @@ export class AgentAdapterService {
     let proc: ChildProcess | null = null;
     let timeoutHandle: NodeJS.Timeout | null = null;
     let isComplete = false;
+    const circuitBreaker = this.getCircuitBreaker(agent.id);
 
     try {
       // Send metadata event
@@ -83,6 +155,7 @@ export class AgentAdapterService {
           agentId: agent.id,
           status: AgentExecutionStatus.RUNNING,
           startedAt: new Date(),
+          circuitBreakerState: circuitBreaker.getState(),
         },
         timestamp: new Date(),
         executionId,
@@ -98,15 +171,39 @@ export class AgentAdapterService {
         throw new Error(`Working directory does not exist: ${cwd}`);
       }
 
-      // Spawn process
-      proc = spawn(agent.cmd, allArgs, {
-        cwd: cwd || process.cwd(),
-        env: { ...process.env, ...processEnv },
-        stdio: ['ignore', 'pipe', 'pipe'],
-      });
+      // Collect retry events to yield later
+      const retryEvents: StreamEvent[] = [];
 
+      // Spawn process with retry
+      proc = await this.spawnProcessWithRetry(
+        agent.cmd,
+        allArgs,
+        { cwd, env: processEnv },
+        async (attempt, error, delayMs) => {
+          // Create retry event
+          const retryEvent: StreamEvent = {
+            type: StreamEventType.RETRY,
+            data: {
+              attempt,
+              error: error.message,
+              delayMs,
+              nextRetryIn: delayMs,
+            },
+            timestamp: new Date(),
+            executionId,
+          };
+          retryEvents.push(retryEvent);
+        }
+      );
+
+      // Yield any retry events that occurred
+      for (const retryEvent of retryEvents) {
+        yield retryEvent;
+      }
+
+      // Verify process has PID
       if (!proc.pid) {
-        throw new Error('Failed to spawn process');
+        throw new Error('Process spawned but has no PID');
       }
 
       // Update execution with process ID
@@ -145,12 +242,20 @@ export class AgentAdapterService {
       // Update execution status
       await executionRepository.markAsCompleted(executionId, exitCode);
 
+      // Record circuit breaker state
+      if (exitCode === 0) {
+        circuitBreaker.recordSuccess();
+      } else {
+        circuitBreaker.recordFailure();
+      }
+
       // Send completion event
       yield {
         type: StreamEventType.COMPLETE,
         data: {
           exitCode,
           status: exitCode === 0 ? AgentExecutionStatus.COMPLETED : AgentExecutionStatus.FAILED,
+          circuitBreakerState: circuitBreaker.getState(),
         },
         timestamp: new Date(),
         executionId,
@@ -161,9 +266,15 @@ export class AgentAdapterService {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       await executionRepository.markAsFailed(executionId, errorMessage);
 
+      // Record failure in circuit breaker
+      circuitBreaker.recordFailure();
+
       yield {
         type: StreamEventType.ERROR,
-        data: { message: errorMessage },
+        data: {
+          message: errorMessage,
+          circuitBreakerState: circuitBreaker.getState(),
+        },
         timestamp: new Date(),
         executionId,
       };
