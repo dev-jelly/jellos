@@ -425,9 +425,10 @@
               2
             ],
             "details": "Redis 클라이언트를 설정하고 헬스체크 결과를 JSON 직렬화하여 저장한다. TTL 10분을 설정하고 캐시 키는 프로젝트 ID와 에이전트 식별자를 조합하여 생성한다. 캐시 미스 시 헬스체크를 실행하고 결과를 캐싱한다. Redis 연결 실패 시 graceful fallback으로 메모리 캐시를 사용한다.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Redis mock을 사용한 단위 테스트와 TTL 만료 시나리오, 캐시 invalidation 로직을 검증한다.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-12T04:05:13.875Z"
           },
           {
             "id": 5,
@@ -470,7 +471,7 @@
         "complexity": 7,
         "recommendedSubtasks": 7,
         "expansionPrompt": "에이전트 디스커버리 로직, child_process 안전 실행, Node Permission Model 적용, Redis 캐싱 레이어, 헬스체크 엔드포인트, 우선순위 규칙 엔진, 자동 감지 시스템으로 분할",
-        "updatedAt": "2025-11-12T04:02:54.406Z"
+        "updatedAt": "2025-11-12T04:05:13.875Z"
       },
       {
         "id": "6",
@@ -1394,7 +1395,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2025-11-12T04:02:54.407Z",
+      "lastModified": "2025-11-12T04:05:13.876Z",
       "taskCount": 15,
       "completedCount": 4,
       "tags": [
