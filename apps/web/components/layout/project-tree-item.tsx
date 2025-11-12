@@ -2,9 +2,13 @@
 
 import type { Project } from '@/lib/api';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ChevronRightIcon, ChevronDownIcon } from '@heroicons/react/20/solid';
 import { AgentBadges } from '../agents/agent-badges';
+import {
+  isProjectExpanded,
+  setProjectExpanded,
+} from '@/lib/local-storage';
 
 interface ProjectTreeItemProps {
   project: Project;
@@ -12,10 +16,17 @@ interface ProjectTreeItemProps {
 
 /**
  * Tree item component for a single project
- * Supports expand/collapse for nested views
+ * Supports expand/collapse for nested views with state persistence
  */
 export function ProjectTreeItem({ project }: ProjectTreeItemProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(() =>
+    isProjectExpanded(project.id)
+  );
+
+  // Persist expand/collapse state when it changes
+  useEffect(() => {
+    setProjectExpanded(project.id, isExpanded);
+  }, [project.id, isExpanded]);
 
   return (
     <div>

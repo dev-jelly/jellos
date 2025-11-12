@@ -5,6 +5,10 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { MagnifyingGlassIcon } from '@heroicons/react/20/solid';
 import { ClockIcon } from '@heroicons/react/24/outline';
+import {
+  getRecentProjects,
+  addToRecentProjects,
+} from '@/lib/local-storage';
 
 interface CommandPaletteProps {
   projects: Project[];
@@ -70,40 +74,6 @@ function searchProjects(
     })
     .filter((p) => p.score > 0.1) // Filter out very poor matches
     .sort((a, b) => b.score - a.score);
-}
-
-/**
- * Local storage keys for recent projects
- */
-const RECENT_PROJECTS_KEY = 'jellos:recentProjects';
-const MAX_RECENT = 5;
-
-/**
- * Get recent project IDs from local storage
- */
-function getRecentProjects(): string[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const stored = localStorage.getItem(RECENT_PROJECTS_KEY);
-    return stored ? JSON.parse(stored) : [];
-  } catch {
-    return [];
-  }
-}
-
-/**
- * Add a project to recent projects
- */
-function addToRecentProjects(projectId: string): void {
-  if (typeof window === 'undefined') return;
-  try {
-    const recent = getRecentProjects();
-    const filtered = recent.filter((id) => id !== projectId);
-    const updated = [projectId, ...filtered].slice(0, MAX_RECENT);
-    localStorage.setItem(RECENT_PROJECTS_KEY, JSON.stringify(updated));
-  } catch {
-    // Ignore storage errors
-  }
 }
 
 /**

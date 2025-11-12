@@ -286,7 +286,7 @@
         "testStrategy": "Storybook 시각 테스트로 100+ 프로젝트에서도 60fps 스크롤이 유지되는지 `@storybook/testing-library`와 Lighthouse Performance를 함께 측정한다.",
         "priority": "medium",
         "dependencies": [],
-        "status": "in-progress",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -361,15 +361,16 @@
               5
             ],
             "details": "localStorage API를 활용해 트리 노드의 펼침/접기 상태를 JSON으로 직렬화해 저장한다. 페이지 새로고침 시 저장된 상태를 복원하고, 프로젝트 전환 히스토리를 관리한다. 스토리지 용량 제한을 고려해 LRU 캐시 전략을 적용하고, 상태 버전 관리를 통해 스키마 변경 시 마이그레이션을 처리한다.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "localStorage mock을 사용해 상태 저장/복원 로직을 테스트하고, 브라우저 새로고침 후에도 UI 상태가 유지되는지 E2E 테스트로 확인한다.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-12T02:47:15.310Z"
           }
         ],
         "complexity": 6,
         "recommendedSubtasks": 6,
         "expansionPrompt": "Next.js 서버 컴포넌트 구조, Virtua 가상 스크롤 통합, 프로젝트 트리 컴포넌트, 에이전트 배지 시스템, Command Palette 단축키, 로컬 스토리지 상태 관리로 나누어 구현",
-        "updatedAt": "2025-11-12T02:44:54.884Z"
+        "updatedAt": "2025-11-12T02:47:16.289Z"
       },
       {
         "id": "5",
@@ -1390,9 +1391,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2025-11-12T02:44:54.885Z",
+      "lastModified": "2025-11-12T02:47:16.290Z",
       "taskCount": 15,
-      "completedCount": 3,
+      "completedCount": 4,
       "tags": [
         "master"
       ]
