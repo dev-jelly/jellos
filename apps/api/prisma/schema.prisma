@@ -75,6 +75,16 @@ model Worktree {
   @@map("worktrees")
 }
 
+/// WorktreeLock for distributed locking mechanism
+model WorktreeLock {
+  resourceId String   @id // Unique identifier for the locked resource (e.g., worktree ID or branch name)
+  lockId     String   // Unique lock identifier
+  processId  Int      // Process ID that holds the lock
+  expiresAt  DateTime // Lock expiration timestamp
+
+  @@map("worktree_locks")
+}
+
 /// CodeAgentRuntime represents a discovered or configured code agent
 model CodeAgentRuntime {
   id           String    @id @default(cuid())
