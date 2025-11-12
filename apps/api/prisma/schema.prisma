@@ -55,13 +55,15 @@ model Issue {
 
 /// Worktree represents a git worktree for isolated development
 model Worktree {
-  id        String   @id @default(cuid())
-  projectId String
-  issueId   String?
-  path      String
-  branch    String   @unique
-  status    String   @default("ACTIVE") // ACTIVE, STALE, REMOVED
-  createdAt DateTime @default(now())
+  id           String    @id @default(cuid())
+  projectId    String
+  issueId      String?
+  path         String
+  branch       String    @unique
+  status       String    @default("ACTIVE") // ACTIVE, STALE, DIRTY, REMOVED
+  lastActivity DateTime? // Last time worktree was accessed or modified
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   // Relations
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
@@ -69,6 +71,7 @@ model Worktree {
 
   @@index([projectId])
   @@index([issueId])
+  @@index([status])
   @@map("worktrees")
 }
 

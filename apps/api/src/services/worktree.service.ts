@@ -6,12 +6,13 @@
 import { spawn } from 'child_process';
 import { existsSync, mkdirSync } from 'fs';
 import { resolve, join, dirname } from 'path';
-import { prisma } from '../lib/db';
 import type { Worktree } from '../lib/db';
 import {
   getWorktreeValidationService,
   WorktreeValidationService,
 } from './worktree-validation.service';
+import { worktreeRepository } from '../repositories/worktree.repository';
+import { WorktreeStatus } from '../types/worktree';
 
 export interface WorktreeCreateOptions {
   projectId: string;
@@ -122,14 +123,12 @@ export class WorktreeService {
       }
 
       // 6. Save metadata to database
-      const worktree = await prisma.worktree.create({
-        data: {
-          projectId,
-          issueId: issueId || null,
-          path: worktreePath,
-          branch,
-          status: 'ACTIVE',
-        },
+      const worktree = await worktreeRepository.create({
+        projectId,
+        issueId,
+        path: worktreePath,
+        branch,
+        status: WorktreeStatus.ACTIVE,
       });
 
       return {
@@ -150,9 +149,7 @@ export class WorktreeService {
    */
   public async removeWorktree(worktreeId: string): Promise<WorktreeCreateResult> {
     try {
-      const worktree = await prisma.worktree.findUnique({
-        where: { id: worktreeId },
-      });
+      const worktree = await worktreeRepository.findById(worktreeId);
 
       if (!worktree) {
         return {
@@ -168,10 +165,7 @@ export class WorktreeService {
       }
 
       // Update database status
-      const updatedWorktree = await prisma.worktree.update({
-        where: { id: worktreeId },
-        data: { status: 'REMOVED' },
-      });
+      const updatedWorktree = await worktreeRepository.markAsRemoved(worktreeId);
 
       return {
         success: true,
@@ -190,31 +184,14 @@ export class WorktreeService {
    * List all worktrees from database
    */
   public async listWorktrees(projectId?: string): Promise<Worktree[]> {
-    return prisma.worktree.findMany({
-      where: projectId ? { projectId } : undefined,
-      orderBy: { createdAt: 'desc' },
-      include: {
-        project: {
-          select: { name: true },
-        },
-        issue: {
-          select: { title: true },
-        },
-      },
-    });
+    return worktreeRepository.findMany(projectId ? { projectId } : undefined);
   }
 
   /**
    * Get worktree by ID
    */
   public async getWorktree(worktreeId: string): Promise<Worktree | null> {
-    return prisma.worktree.findUnique({
-      where: { id: worktreeId },
-      include: {
-        project: true,
-        issue: true,
-      },
-    });
+    return worktreeRepository.findById(worktreeId);
   }
 
   /**
@@ -431,9 +408,7 @@ export class WorktreeService {
       throw new Error('Failed to list git worktrees');
     }
 
-    const dbWorktrees = await prisma.worktree.findMany({
-      where: { status: 'ACTIVE' },
-    });
+    const dbWorktrees = await worktreeRepository.findActive();
 
     let added = 0;
     let removed = 0;
@@ -443,10 +418,7 @@ export class WorktreeService {
     for (const dbWorktree of dbWorktrees) {
       const exists = gitWorktrees.worktrees.some((gw) => gw.path === dbWorktree.path);
       if (!exists) {
-        await prisma.worktree.update({
-          where: { id: dbWorktree.id },
-          data: { status: 'REMOVED' },
-        });
+        await worktreeRepository.markAsRemoved(dbWorktree.id);
         removed++;
       }
     }
