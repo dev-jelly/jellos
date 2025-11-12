@@ -11,6 +11,7 @@ import { healthRoutes } from './routes/health.routes';
 import { projectRoutes } from './routes/project.routes';
 import { linearSyncRoutes } from './routes/linear-sync.routes';
 import { issueRoutes } from './routes/issue.routes';
+import { executionRoutes } from './routes/execution.routes';
 import ssePlugin from './plugins/sse.plugin';
 
 export async function buildApp() {
@@ -44,6 +45,7 @@ export async function buildApp() {
   await app.register(projectRoutes, { prefix: '/api/projects' });
   await app.register(linearSyncRoutes, { prefix: '/api/linear' });
   await app.register(issueRoutes, { prefix: '/api/issues' });
+  await app.register(executionRoutes, { prefix: '/api/executions' });
 
   // Global error handler
   app.setErrorHandler((error: FastifyError, request, reply) => {

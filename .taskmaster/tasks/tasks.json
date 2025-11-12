@@ -380,7 +380,7 @@
         "testStrategy": "모킹 없이 실제 CLI를 호출하는 통합 테스트를 워크플로우 디렉터리에서 실행하고, Permission Model이 미설정일 때 403을 반환하도록 회귀 테스트를 작성한다.",
         "priority": "medium",
         "dependencies": [],
-        "status": "in-progress",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -412,9 +412,10 @@
               2
             ],
             "details": "Node.js 실행 시 --permission, --allow-child-process, --allow-read-fs 플래그를 동적으로 구성한다. 워크트리별 화이트리스트 경로를 설정하고, 네트워크 접근과 파일시스템 접근을 제한한다. Permission denied 에러 발생 시 명확한 에러 메시지와 권한 설정 가이드를 제공한다.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "권한이 없는 경로 접근 시 ERR_ACCESS_DENIED 발생을 확인하고, 샌드박스 외부 접근 시도를 차단하는지 검증한다.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-12T04:15:36.692Z"
           },
           {
             "id": 4,
@@ -439,9 +440,10 @@
               4
             ],
             "details": "Fastify 라우터에 GET /projects/:id/agents 엔드포인트를 추가하여 캐싱된 에이전트 상태를 반환한다. POST /projects/:id/agents/refresh 엔드포인트로 캐시를 무효화하고 새로운 헬스체크를 트리거한다. 각 에이전트별 상태(healthy, unhealthy, unknown)와 메타데이터를 JSON으로 응답한다.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "API 통합 테스트로 엔드포인트 응답과 캐시 refresh 동작을 검증하고, 동시성 테스트를 수행한다.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-12T04:10:40.715Z"
           },
           {
             "id": 6,
@@ -451,9 +453,10 @@
               1
             ],
             "details": "에이전트 설정 소스별 우선순위를 정의하고, 충돌 해결 로직을 구현한다. 프로젝트별 .jellos.yml 설정이 최우선이고, 사용자 홈 디렉터리의 글로벌 설정이 다음, PATH 자동 감지가 마지막 우선순위다. 동일한 에이전트가 여러 소스에서 발견될 때 병합 규칙을 적용한다.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "다양한 설정 조합에 대한 단위 테스트와 우선순위 충돌 시나리오를 검증한다.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-12T04:11:12.859Z"
           },
           {
             "id": 7,
@@ -463,15 +466,16 @@
               1
             ],
             "details": "시스템 PATH 환경변수를 파싱하고 각 경로에서 알려진 에이전트 패턴(task-master, gh, npm 등)을 검색한다. 발견된 바이너리에 대해 --version 명령을 실행하여 유효성을 검증한다. 일반적인 설치 경로(/usr/local/bin, ~/.npm/bin, ~/go/bin 등)도 스캔한다. 감지된 에이전트 정보를 메모리에 캐싱한다.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "모의 파일시스템과 PATH 설정으로 자동 감지 로직을 테스트하고, 다양한 OS 환경을 시뮬레이션한다.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-12T04:11:42.229Z"
           }
         ],
         "complexity": 7,
         "recommendedSubtasks": 7,
         "expansionPrompt": "에이전트 디스커버리 로직, child_process 안전 실행, Node Permission Model 적용, Redis 캐싱 레이어, 헬스체크 엔드포인트, 우선순위 규칙 엔진, 자동 감지 시스템으로 분할",
-        "updatedAt": "2025-11-12T04:05:13.875Z"
+        "updatedAt": "2025-11-12T04:15:36.692Z"
       },
       {
         "id": "6",
@@ -481,7 +485,7 @@
         "testStrategy": "Contract 테스트로 Linear mock server에 대한 GraphQL 호출을 검증하고, UI Cypress 시나리오로 필터/정렬·상태 칩 업데이트를 확인한다.",
         "priority": "medium",
         "dependencies": [],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -489,9 +493,10 @@
             "description": "Issue, ExternalIssueLink, IssueComment 테이블을 정의하고 Prisma 리포지토리 패턴으로 CRUD 작업을 래핑한다.",
             "dependencies": [],
             "details": "Prisma 스키마에 Issue(id, title, description, status, priority, createdAt, updatedAt), ExternalIssueLink(id, issueId, externalSystem, externalId, metadata), IssueComment(id, issueId, content, authorId, createdAt) 테이블을 정의하고, repository 패턴으로 IssueRepository 클래스를 구현해 데이터베이스 접근을 추상화한다. Zod 스키마로 입력 검증을 추가한다.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "단위 테스트로 각 repository 메서드의 CRUD 동작을 검증하고, 트랜잭션 롤백 시나리오를 테스트한다.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-12T04:18:55.097Z"
           },
           {
             "id": 2,
@@ -499,9 +504,10 @@
             "description": "Linear API 토큰을 Vault/Keychain에서 읽어 Linear GraphQL 클라이언트를 초기화하고 IssueQuery를 구현한다.",
             "dependencies": [],
             "details": "@linear/sdk 패키지를 설치하고 LinearClient를 초기화하는 서비스를 구성한다. Vault나 Keychain에서 LINEAR_API_KEY를 읽어오는 SecretManager 클래스를 구현하고, GraphQL 쿼리로 issue, issues, issueSearch 메서드를 래핑한다. 에러 핸들링과 재시도 로직을 추가해 네트워크 장애에 대응한다.",
-            "status": "pending",
+            "status": "in-progress",
             "testStrategy": "Mock Linear 서버로 GraphQL 응답을 시뮬레이션하고, API 토큰이 없을 때의 에러 처리를 검증한다.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-12T04:34:35.446Z"
           },
           {
             "id": 3,
@@ -558,7 +564,8 @@
         ],
         "complexity": 6,
         "recommendedSubtasks": 6,
-        "expansionPrompt": "Prisma 이슈 모델 구현, Linear GraphQL 클라이언트 설정, 외부 이슈 링크 시스템, 데이터 머지 로직, 캐싱 전략, UI 통합 렌더링으로 구분"
+        "expansionPrompt": "Prisma 이슈 모델 구현, Linear GraphQL 클라이언트 설정, 외부 이슈 링크 시스템, 데이터 머지 로직, 캐싱 전략, UI 통합 렌더링으로 구분",
+        "updatedAt": "2025-11-12T04:56:46.426Z"
       },
       {
         "id": "7",
@@ -568,7 +575,7 @@
         "testStrategy": "tmp 디렉터리를 사용하는 통합 테스트로 생성→커밋→삭제 플로우를 검증하고, PR 존재 시 차단 로직을 unit 테스트한다.",
         "priority": "medium",
         "dependencies": [],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -576,9 +583,10 @@
             "description": "PR 중복 여부와 작업 디렉터리 충돌을 검사하는 유효성 검증 로직을 구현한다.",
             "dependencies": [],
             "details": "git fetch --prune origin 실행 후 GitHub API를 통해 해당 이슈의 기존 PR 존재 여부를 확인하고, 로컬 파일시스템에서 동일 경로의 워크트리 충돌을 검사한다. 충돌 발생 시 명확한 에러 메시지와 함께 생성을 차단한다.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "모킹된 GitHub API와 파일시스템으로 다양한 충돌 시나리오를 단위 테스트한다.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-12T05:03:02.023Z"
           },
           {
             "id": 2,
@@ -588,9 +596,10 @@
               1
             ],
             "details": "child_process.spawn으로 git worktree add 명령을 실행하고, 타임아웃과 에러 핸들링을 적용한다. 워크트리 경로는 프로젝트 루트 기준 .jellos/worktrees/{issue-id} 패턴으로 표준화하고, 생성 직후 브랜치 체크아웃 상태를 검증한다.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "임시 Git 저장소를 생성해 실제 워크트리 생성과 삭제 플로우를 통합 테스트한다.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-12T05:04:45.240Z"
           },
           {
             "id": 3,
@@ -598,9 +607,10 @@
             "description": "워크트리 정보를 PostgreSQL/SQLite에 저장하고 관리하는 데이터 레이어를 구축한다.",
             "dependencies": [],
             "details": "worktrees 테이블에 id, path, branch, status, created_at, updated_at, last_activity 필드를 정의하고, Prisma/Drizzle ORM으로 모델을 생성한다. 워크트리 생성/업데이트/삭제 시 트랜잭션으로 메타데이터를 동기화하며, status는 active/dirty/stale enum으로 관리한다.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "인메모리 SQLite로 CRUD 작업과 트랜잭션 롤백 시나리오를 테스트한다.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-12T05:09:02.374Z"
           },
           {
             "id": 4,
@@ -610,9 +620,10 @@
               3
             ],
             "details": "PostgreSQL의 advisory lock 또는 SQLite의 busy timeout 메커니즘을 활용해 워크트리별 배타적 락을 구현한다. 락 획득 실패 시 지수 백오프로 재시도하고, 데드락 감지 및 타임아웃(30초) 로직을 포함한다. 프로세스 비정상 종료 시 락 자동 해제를 보장한다.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "다중 프로세스를 동시에 실행해 락 획득 경쟁과 데드락 회피를 검증한다.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-12T05:11:33.799Z"
           },
           {
             "id": 5,
@@ -622,9 +633,10 @@
               3
             ],
             "details": "Node.js의 node-cron 또는 Bull Queue로 5분 간격 스케줄러를 실행하고, git status --porcelain으로 각 워크트리의 변경사항을 감지한다. 더티 상태가 1시간 이상 지속되면 경고 이벤트를 EventEmitter로 발행하고, 3일 이상 미사용 시 stale 마킹한다.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "시간을 모킹해 스케줄러 트리거와 상태 전환 로직을 단위 테스트한다.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-12T05:15:18.004Z"
           },
           {
             "id": 6,
@@ -634,9 +646,10 @@
               5
             ],
             "details": "stale 마킹된 워크트리에 대해 사용자 확인 프롬프트를 표시하거나 강제 정리 모드를 지원한다. git worktree remove --force로 안전하게 제거하고, 정리 이력을 audit 로그에 기록한다. Slack/이메일 웹훅으로 정리 예정 알림을 24시간 전에 발송한다.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "모킹된 알림 채널과 워크트리 제거 시나리오를 통합 테스트한다.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-12T05:17:35.669Z"
           },
           {
             "id": 7,
@@ -647,9 +660,10 @@
               6
             ],
             "details": "Commander.js로 worktrees list/create/prune/status 서브커맨드를 구현한다. --force, --dry-run, --filter 옵션을 지원하고, 테이블 형식으로 워크트리 목록을 출력한다. prune 명령은 대화형 모드와 배치 모드를 모두 지원하며, 진행 상황을 ora 스피너로 표시한다.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "CLI 명령어 파싱과 출력 포맷을 스냅샷 테스트로 검증한다.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-12T05:20:18.290Z"
           },
           {
             "id": 8,
@@ -659,14 +673,16 @@
               2
             ],
             "details": "워크트리 생성 직후 pnpm install, 환경 변수 복사(.env.local), Git hooks 설정을 자동 실행한다. 프로젝트별 .jellos.yml의 worktree.post-create 훅을 지원하고, 설정 실패 시 롤백 메커니즘을 제공한다. 캐시된 node_modules를 하드링크로 공유해 설치 시간을 단축한다.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "다양한 프로젝트 설정으로 후처리 스크립트 실행을 검증한다.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-12T05:22:49.153Z"
           }
         ],
         "complexity": 8,
         "recommendedSubtasks": 8,
-        "expansionPrompt": "워크트리 생성 로직, PR 중복 검사, 메타데이터 저장, 상태 모니터링 스케줄러, 락 메커니즘 구현, 자동 정리 시스템, CLI 도구, 다중 프로세스 경합 방지로 세분화"
+        "expansionPrompt": "워크트리 생성 로직, PR 중복 검사, 메타데이터 저장, 상태 모니터링 스케줄러, 락 메커니즘 구현, 자동 정리 시스템, CLI 도구, 다중 프로세스 경합 방지로 세분화",
+        "updatedAt": "2025-11-12T05:22:49.153Z"
       },
       {
         "id": "8",
@@ -676,7 +692,7 @@
         "testStrategy": "Jest/Vitest로 async iterator를 모킹해 SSE 이벤트 순서를 검증하고, Playwright 브라우저 테스트로 끊김 후 재연결 시 로그 재생이 되는지 확인한다.",
         "priority": "medium",
         "dependencies": [],
-        "status": "pending",
+        "status": "in-progress",
         "subtasks": [
           {
             "id": 1,
@@ -684,9 +700,10 @@
             "description": "@fastify/sse 플러그인을 설치하고 Fastify 인스턴스에 등록하며, 기본 SSE 엔드포인트와 CORS 설정을 구성한다.",
             "dependencies": [],
             "details": "pnpm add @fastify/sse를 실행하고 apps/api/src/plugins/sse.ts에서 플러그인을 등록한다. reply.sse() 메서드를 사용할 수 있도록 타입 정의를 확장하고, SSE 연결에 필요한 헤더(Cache-Control, Connection, X-Accel-Buffering)를 설정한다. CORS 정책을 조정해 클라이언트의 EventSource 접근을 허용한다.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "플러그인 등록 후 reply.sse가 정의되었는지 unit 테스트로 확인하고, 실제 SSE 연결이 열리는지 통합 테스트로 검증한다.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-12T08:56:18.209Z"
           },
           {
             "id": 2,
@@ -696,9 +713,10 @@
               1
             ],
             "details": "apps/api/src/controllers/execution.controller.ts에서 GET /executions/:id/stream 엔드포인트를 구현한다. agentAdapter.execute()의 AsyncGenerator에서 청크를 읽어 reply.sse.send()로 전송하며, 각 이벤트에 타입(stdout, stderr, error, complete)과 타임스탬프를 포함한다. 실행 컨텍스트와 세션 ID를 관리하고 동시 실행 제한을 적용한다.",
-            "status": "pending",
+            "status": "in-progress",
             "testStrategy": "모킹된 AsyncIterator로 다양한 이벤트 시퀀스를 시뮬레이션하고, SSE 메시지 순서와 형식을 검증한다.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-12T09:02:11.516Z"
           },
           {
             "id": 3,
@@ -765,7 +783,8 @@
         ],
         "complexity": 7,
         "recommendedSubtasks": 7,
-        "expansionPrompt": "Fastify SSE 플러그인 설정, 실행 컨트롤러, 스트림 처리, 재시도 로직, 클라이언트 재연결 처리, Git diff 수집, 실패 복구 메커니즘으로 분할"
+        "expansionPrompt": "Fastify SSE 플러그인 설정, 실행 컨트롤러, 스트림 처리, 재시도 로직, 클라이언트 재연결 처리, Git diff 수집, 실패 복구 메커니즘으로 분할",
+        "updatedAt": "2025-11-12T09:02:11.516Z"
       },
       {
         "id": "9",
@@ -1395,9 +1414,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2025-11-12T04:05:13.876Z",
+      "lastModified": "2025-11-12T09:02:11.517Z",
       "taskCount": 15,
-      "completedCount": 4,
+      "completedCount": 7,
       "tags": [
         "master"
       ]

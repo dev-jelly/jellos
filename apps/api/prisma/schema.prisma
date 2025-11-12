@@ -103,11 +103,39 @@ model CodeAgentRuntime {
   updatedAt    DateTime  @updatedAt
 
   // Relations
-  project Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project    Project?          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  executions AgentExecution[]
 
   @@unique([projectId, externalId])
   @@index([projectId])
   @@map("code_agent_runtimes")
+}
+
+/// AgentExecution represents a single agent execution session
+model AgentExecution {
+  id             String    @id @default(cuid())
+  agentId        String
+  projectId      String?
+  issueId        String?
+  worktreePath   String?
+  status         String    @default("PENDING") // PENDING, RUNNING, COMPLETED, FAILED, TIMEOUT, CANCELLED
+  processId      Int?      // OS process ID
+  exitCode       Int?      // Process exit code
+  startedAt      DateTime?
+  completedAt    DateTime?
+  lastHeartbeat  DateTime?
+  context        String?   // JSON context data (prompt, options, etc.)
+  errorMessage   String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  // Relations
+  agent CodeAgentRuntime @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@index([agentId])
+  @@index([status])
+  @@index([projectId])
+  @@map("agent_executions")
 }
 
 /// ExternalIssueLink connects internal issues to external issue trackers

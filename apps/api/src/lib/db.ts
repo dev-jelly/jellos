@@ -21,6 +21,7 @@ export type {
   Issue,
   Worktree,
   CodeAgentRuntime,
+  AgentExecution,
   ExternalIssueLink,
   IssueComment,
 } from '@prisma/client';
