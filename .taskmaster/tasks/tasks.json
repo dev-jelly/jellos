@@ -739,10 +739,10 @@
               2
             ],
             "details": "apps/api/src/utils/retry.ts에서 exponentialBackoff 함수를 구현한다. 초기 지연 1초, 최대 지연 30초, 지터 0-1초를 적용하며, 재시도 가능한 에러(네트워크, 타임아웃)와 불가능한 에러(권한, 문법)를 구분한다. 재시도 시마다 SSE로 retry 이벤트를 전송해 클라이언트에 상태를 알린다. Circuit Breaker 패턴을 적용해 연속 실패 시 일시적으로 요청을 차단한다.",
-            "status": "in-progress",
+            "status": "done",
             "testStrategy": "다양한 실패 시나리오에서 재시도 횟수와 지연 시간을 검증하고, Circuit Breaker 상태 전환을 테스트한다.",
             "parentId": "undefined",
-            "updatedAt": "2025-11-12T09:11:31.623Z"
+            "updatedAt": "2025-11-12T09:14:22.909Z"
           },
           {
             "id": 5,
@@ -765,9 +765,10 @@
               4
             ],
             "details": "apps/api/src/services/git.service.ts에서 실행 완료 후 git diff --cached와 git log -1 --format을 실행해 변경사항과 커밋 메시지를 수집한다. 실행 메타데이터(시작/종료 시간, 상태, 에러)와 함께 PostgreSQL이나 SQLite에 저장한다. 대용량 diff는 압축하거나 S3에 오프로드하고, 실행 이력 조회 API를 제공한다.",
-            "status": "pending",
+            "status": "in-progress",
             "testStrategy": "임시 Git 저장소에서 변경 후 diff/commit 수집을 테스트하고, 데이터베이스 저장과 조회를 검증한다.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-12T10:14:12.979Z"
           },
           {
             "id": 7,
@@ -786,7 +787,7 @@
         "complexity": 7,
         "recommendedSubtasks": 7,
         "expansionPrompt": "Fastify SSE 플러그인 설정, 실행 컨트롤러, 스트림 처리, 재시도 로직, 클라이언트 재연결 처리, Git diff 수집, 실패 복구 메커니즘으로 분할",
-        "updatedAt": "2025-11-12T09:11:31.623Z"
+        "updatedAt": "2025-11-12T10:14:12.979Z"
       },
       {
         "id": "9",
@@ -1416,7 +1417,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2025-11-12T09:11:31.624Z",
+      "lastModified": "2025-11-12T10:14:12.981Z",
       "taskCount": 15,
       "completedCount": 7,
       "tags": [

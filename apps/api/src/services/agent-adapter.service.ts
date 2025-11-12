@@ -20,6 +20,7 @@ import {
   type RetryOptions,
   RetryableError,
 } from '../utils/retry';
+import { getGitService } from './git.service';
 
 export interface ProcessStreamOptions {
   executionId: string;
@@ -239,8 +240,31 @@ export class AgentAdapterService {
         clearTimeout(timeoutHandle);
       }
 
-      // Update execution status
-      await executionRepository.markAsCompleted(executionId, exitCode);
+      // Collect git metadata if working in a directory
+      let gitMetadata: any = undefined;
+      if (cwd && existsSync(cwd)) {
+        try {
+          const gitService = getGitService();
+          const metadata = await gitService.collectMetadata(cwd);
+
+          if (metadata) {
+            gitMetadata = {
+              gitDiff: metadata.diff?.diff,
+              gitCommitHash: metadata.commit?.hash,
+              gitCommitMsg: metadata.commit?.message,
+              gitBranch: metadata.branch,
+              filesChanged: metadata.diff?.filesChanged,
+              linesAdded: metadata.diff?.linesAdded,
+              linesDeleted: metadata.diff?.linesDeleted,
+            };
+          }
+        } catch (error) {
+          console.warn('Failed to collect git metadata:', error);
+        }
+      }
+
+      // Update execution status with git metadata
+      await executionRepository.markAsCompleted(executionId, exitCode, gitMetadata);
 
       // Record circuit breaker state
       if (exitCode === 0) {
@@ -256,6 +280,13 @@ export class AgentAdapterService {
           exitCode,
           status: exitCode === 0 ? AgentExecutionStatus.COMPLETED : AgentExecutionStatus.FAILED,
           circuitBreakerState: circuitBreaker.getState(),
+          gitMetadata: gitMetadata ? {
+            branch: gitMetadata.gitBranch,
+            filesChanged: gitMetadata.filesChanged,
+            linesAdded: gitMetadata.linesAdded,
+            linesDeleted: gitMetadata.linesDeleted,
+            hasCommit: !!gitMetadata.gitCommitHash,
+          } : undefined,
         },
         timestamp: new Date(),
         executionId,

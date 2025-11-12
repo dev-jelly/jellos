@@ -23,6 +23,13 @@ export interface UpdateExecutionData {
   completedAt?: Date;
   lastHeartbeat?: Date;
   errorMessage?: string;
+  gitDiff?: string;
+  gitCommitHash?: string;
+  gitCommitMsg?: string;
+  gitBranch?: string;
+  filesChanged?: number;
+  linesAdded?: number;
+  linesDeleted?: number;
 }
 
 export class ExecutionRepository {
@@ -94,11 +101,24 @@ export class ExecutionRepository {
   /**
    * Mark execution as completed
    */
-  async markAsCompleted(id: string, exitCode: number): Promise<AgentExecution> {
+  async markAsCompleted(
+    id: string,
+    exitCode: number,
+    gitMetadata?: {
+      gitDiff?: string;
+      gitCommitHash?: string;
+      gitCommitMsg?: string;
+      gitBranch?: string;
+      filesChanged?: number;
+      linesAdded?: number;
+      linesDeleted?: number;
+    }
+  ): Promise<AgentExecution> {
     return this.update(id, {
       status: exitCode === 0 ? AgentExecutionStatus.COMPLETED : AgentExecutionStatus.FAILED,
       exitCode,
       completedAt: new Date(),
+      ...gitMetadata,
     });
   }
 

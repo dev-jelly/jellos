@@ -126,6 +126,14 @@ model AgentExecution {
   lastHeartbeat  DateTime?
   context        String?   // JSON context data (prompt, options, etc.)
   errorMessage   String?
+  // Git metadata
+  gitDiff        String?   // Git diff output (may be compressed)
+  gitCommitHash  String?   // Commit SHA if committed
+  gitCommitMsg   String?   // Commit message
+  gitBranch      String?   // Branch name
+  filesChanged   Int?      // Number of files changed
+  linesAdded     Int?      // Lines added
+  linesDeleted   Int?      // Lines deleted
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
@@ -135,6 +143,7 @@ model AgentExecution {
   @@index([agentId])
   @@index([status])
   @@index([projectId])
+  @@index([gitCommitHash])
   @@map("agent_executions")
 }
 
