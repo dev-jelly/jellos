@@ -2,13 +2,15 @@
 
 import type { Project } from '@/lib/api';
 import Link from 'next/link';
+import { WindowVirtualizer } from 'virtua';
 
 interface ProjectListProps {
   projects: Project[];
 }
 
 /**
- * Client component for project list - will be enhanced with virtual scrolling in Subtask 4.2
+ * Client component for project list with virtual scrolling
+ * Uses Virtua's WindowVirtualizer for efficient rendering of large project lists
  */
 export function ProjectList({ projects }: ProjectListProps) {
   if (projects.length === 0) {
@@ -21,21 +23,23 @@ export function ProjectList({ projects }: ProjectListProps) {
   }
 
   return (
-    <nav className="p-2">
-      <div className="space-y-1">
+    <nav className="h-full">
+      <WindowVirtualizer>
         {projects.map((project) => (
           <Link
             key={project.id}
             href={`/projects/${project.id}`}
-            className="block px-3 py-2 rounded-md text-sm hover:bg-gray-100 transition-colors"
+            className="block px-5 py-3 hover:bg-gray-100 transition-colors border-b border-gray-100"
           >
-            <div className="font-medium text-gray-900">{project.name}</div>
-            <div className="text-xs text-gray-500 truncate">
+            <div className="font-medium text-gray-900 text-sm">
+              {project.name}
+            </div>
+            <div className="text-xs text-gray-500 truncate mt-0.5">
               {project.localPath}
             </div>
           </Link>
         ))}
-      </div>
+      </WindowVirtualizer>
     </nav>
   );
 }

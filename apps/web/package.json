@@ -11,7 +11,8 @@
   "dependencies": {
     "next": "^15.2.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "virtua": "^0.46.7"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
