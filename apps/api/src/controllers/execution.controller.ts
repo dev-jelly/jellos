@@ -6,7 +6,8 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import { getAgentAdapterService } from '../services/agent-adapter.service';
 import { executionRepository } from '../repositories/execution.repository';
-import type { AgentExecuteOptions } from '../types/agent-execution';
+import { getEventBufferService } from '../services/event-buffer.service';
+import { StreamEventType, type AgentExecuteOptions } from '../types/agent-execution';
 
 export interface CreateExecutionBody {
   agentId: string;
@@ -81,6 +82,7 @@ export async function streamExecution(
   reply: FastifyReply
 ) {
   const { id: executionId } = request.params;
+  const lastEventId = request.headers['last-event-id'] as string | undefined;
 
   try {
     // Verify execution exists
@@ -92,8 +94,73 @@ export async function streamExecution(
       });
     }
 
-    // Get agent adapter
+    // Get services
     const agentAdapter = getAgentAdapterService();
+    const eventBuffer = getEventBufferService();
+
+    // Setup AbortController for client disconnection detection
+    const abortController = new AbortController();
+
+    request.raw.on('close', () => {
+      request.log.info(`Client disconnected from execution ${executionId}`);
+      abortController.abort();
+    });
+
+    request.raw.on('error', () => {
+      request.log.error(`Client connection error for execution ${executionId}`);
+      abortController.abort();
+    });
+
+    // If reconnecting with Last-Event-ID, replay missed events
+    if (lastEventId && eventBuffer.hasBuffer(executionId)) {
+      request.log.info(`Replaying events after ${lastEventId} for execution ${executionId}`);
+
+      const missedEvents = eventBuffer.getEventsAfter(executionId, lastEventId);
+
+      for (const bufferedEvent of missedEvents) {
+        if (abortController.signal.aborted) break;
+
+        reply.raw.write(
+          `id: ${bufferedEvent.id}\n` +
+          `event: ${bufferedEvent.event.type}\n` +
+          `data: ${JSON.stringify({
+            type: bufferedEvent.event.type,
+            data: bufferedEvent.event.data,
+            timestamp: bufferedEvent.event.timestamp,
+            executionId: bufferedEvent.event.executionId,
+          })}\n\n`
+        );
+      }
+    }
+
+    // Setup heartbeat
+    let heartbeatCount = 0;
+    const heartbeatInterval = setInterval(() => {
+      if (abortController.signal.aborted) {
+        clearInterval(heartbeatInterval);
+        return;
+      }
+
+      const heartbeatEventId = `${executionId}-heartbeat-${heartbeatCount++}`;
+
+      reply.raw.write(
+        `id: ${heartbeatEventId}\n` +
+        `event: ${StreamEventType.HEARTBEAT}\n` +
+        `data: ${JSON.stringify({
+          type: StreamEventType.HEARTBEAT,
+          timestamp: new Date(),
+          executionId,
+        })}\n\n`
+      );
+
+      // Buffer heartbeat events too
+      eventBuffer.addEvent(executionId, heartbeatEventId, {
+        type: StreamEventType.HEARTBEAT,
+        data: { timestamp: new Date() },
+        timestamp: new Date(),
+        executionId,
+      });
+    }, 30000); // Every 30 seconds
 
     // Execute and stream
     const options: AgentExecuteOptions = {
@@ -107,10 +174,18 @@ export async function streamExecution(
     const generator = await agentAdapter.execute(options);
 
     // Stream events via SSE
+    let eventCount = 0;
     for await (const event of generator) {
+      if (abortController.signal.aborted) {
+        request.log.info(`Stream aborted for execution ${executionId}`);
+        break;
+      }
+
+      const eventId = `${executionId}-${eventCount++}`;
+
       // Send SSE event
       reply.raw.write(
-        `id: ${executionId}-${Date.now()}\n` +
+        `id: ${eventId}\n` +
         `event: ${event.type}\n` +
         `data: ${JSON.stringify({
           type: event.type,
@@ -119,7 +194,21 @@ export async function streamExecution(
           executionId: event.executionId,
         })}\n\n`
       );
+
+      // Buffer event for reconnection support
+      eventBuffer.addEvent(executionId, eventId, event);
+
+      // Clear buffer on completion
+      if (event.type === StreamEventType.COMPLETE || event.type === StreamEventType.ERROR) {
+        // Keep buffer for a short time in case of reconnection
+        setTimeout(() => {
+          eventBuffer.clearBuffer(executionId);
+        }, 60000); // Clear after 1 minute
+      }
     }
+
+    // Cleanup
+    clearInterval(heartbeatInterval);
 
     // Close SSE connection
     reply.raw.end();
