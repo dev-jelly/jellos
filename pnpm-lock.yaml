@@ -38,6 +38,9 @@ importers:
       '@fastify/cors':
         specifier: ^10.0.2
         version: 10.1.0
+      '@fastify/sse':
+        specifier: ^0.4.0
+        version: 0.4.0(fastify@5.6.2)
       '@fastify/swagger':
         specifier: ^9.4.2
         version: 9.6.0
@@ -511,6 +514,12 @@ packages:
 
   '@fastify/proxy-addr@5.1.0':
     resolution: {integrity: sha512-INS+6gh91cLUjB+PVHfu1UqcB76Sqtpyp7bnL+FYojhjygvOPA9ctiD/JDKsyD9Xgu4hUhCSJBPig/w7duNajw==}
+
+  '@fastify/sse@0.4.0':
+    resolution: {integrity: sha512-bBV96iT2kHEw6h3i8IMkZGaqA7Gk81ugUzTNctXuE6N2BEC/qBnUuzlD/O17V43OkJP73h0/kf3Bp/asXlSuFA==}
+    engines: {node: '>=20'}
+    peerDependencies:
+      fastify: ^5.x
 
   '@fastify/swagger@9.6.0':
     resolution: {integrity: sha512-qYsQtaWgcVTh7V9OVnbtzpo7hHXS01utWeahs43XETgTTF+iYq7u8NKNZbuoLxj+IsluZ2vjWsQLTFOnWiuCbg==}
@@ -3947,6 +3956,11 @@ snapshots:
     dependencies:
       '@fastify/forwarded': 3.0.1
       ipaddr.js: 2.2.0
+
+  '@fastify/sse@0.4.0(fastify@5.6.2)':
+    dependencies:
+      fastify: 5.6.2
+      fastify-plugin: 5.1.0
 
   '@fastify/swagger@9.6.0':
     dependencies:

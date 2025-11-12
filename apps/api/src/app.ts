@@ -11,6 +11,7 @@ import { healthRoutes } from './routes/health.routes';
 import { projectRoutes } from './routes/project.routes';
 import { linearSyncRoutes } from './routes/linear-sync.routes';
 import { issueRoutes } from './routes/issue.routes';
+import ssePlugin from './plugins/sse.plugin';
 
 export async function buildApp() {
   const app = Fastify({
@@ -34,6 +35,9 @@ export async function buildApp() {
     origin: process.env.CORS_ORIGIN || true,
     credentials: true,
   });
+
+  // Register SSE plugin
+  await app.register(ssePlugin);
 
   // Register routes
   await app.register(healthRoutes, { prefix: '/health' });
