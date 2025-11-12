@@ -7,6 +7,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { issueRepository } from '../repositories/issue.repository';
 import { getIssueMergeService, MergeStrategy } from '../services/issue-merge.service';
+import { getIssueCacheService } from '../services/issue-cache.service';
 import {
   createIssueSchema,
   updateIssueSchema,
@@ -39,6 +40,7 @@ const compareQuerySchema = z.object({
  */
 export async function issueRoutes(fastify: FastifyInstance) {
   const mergeService = getIssueMergeService();
+  const cacheService = getIssueCacheService();
 
   /**
    * POST /issues - Create a new issue
@@ -101,19 +103,49 @@ export async function issueRoutes(fastify: FastifyInstance) {
 
       try {
         if (enriched) {
-          // Return enriched issue
+          // Try to get from cache with SWR pattern
+          const cached = await cacheService.getEnrichedIssue(
+            id,
+            async () => {
+              return mergeService.enrichIssue(id, {
+                fetchLinearData: true,
+                includeLinearData,
+                strategy: strategy as MergeStrategy,
+              });
+            }
+          );
+
+          if (cached.data) {
+            const response = mergeService.transformToApiResponse(cached.data, {
+              includeLinearData,
+              includeEnrichmentStatus: true,
+            });
+
+            return {
+              data: response,
+              cache: {
+                cached: cached.cached,
+                stale: cached.stale,
+                revalidating: cached.revalidating,
+              },
+            };
+          }
+
+          // Cache miss - fetch and cache
           const enrichedIssue = await mergeService.enrichIssue(id, {
             fetchLinearData: true,
             includeLinearData,
             strategy: strategy as MergeStrategy,
           });
 
+          await cacheService.setEnrichedIssue(id, enrichedIssue);
+
           const response = mergeService.transformToApiResponse(enrichedIssue, {
             includeLinearData,
             includeEnrichmentStatus: true,
           });
 
-          return { data: response };
+          return { data: response, cache: { cached: false, stale: false, revalidating: false } };
         }
 
         // Return plain issue
@@ -167,6 +199,10 @@ export async function issueRoutes(fastify: FastifyInstance) {
 
       try {
         const issue = await issueRepository.update(id, request.body);
+
+        // Invalidate cache after update
+        await cacheService.invalidateIssue(id);
+
         return { data: issue };
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown error';
@@ -215,6 +251,10 @@ export async function issueRoutes(fastify: FastifyInstance) {
 
       try {
         await issueRepository.delete(id);
+
+        // Invalidate cache after deletion
+        await cacheService.invalidateIssue(id);
+
         return {
           success: true,
           message: `Issue ${id} deleted successfully`,
@@ -287,12 +327,31 @@ export async function issueRoutes(fastify: FastifyInstance) {
 
       try {
         if (enriched) {
-          // Return enriched issues
+          // Try to get from cache first
+          const cached = await cacheService.getProjectIssues(projectId);
+
+          if (cached.data && !cached.stale) {
+            const responses = mergeService.transformManyToApiResponse(cached.data, {
+              includeLinearData,
+              includeEnrichmentStatus: true,
+            });
+
+            return {
+              data: responses,
+              projectId,
+              total: responses.length,
+              cache: { cached: true, stale: false },
+            };
+          }
+
+          // Cache miss or stale - fetch and cache
           const enrichedIssues = await mergeService.enrichProjectIssues(projectId, {
             fetchLinearData: true,
             includeLinearData,
             strategy: strategy as MergeStrategy,
           });
+
+          await cacheService.setProjectIssues(projectId, enrichedIssues);
 
           const responses = mergeService.transformManyToApiResponse(enrichedIssues, {
             includeLinearData,
@@ -303,6 +362,7 @@ export async function issueRoutes(fastify: FastifyInstance) {
             data: responses,
             projectId,
             total: responses.length,
+            cache: { cached: false, stale: false },
           };
         }
 
@@ -321,6 +381,116 @@ export async function issueRoutes(fastify: FastifyInstance) {
           error: error instanceof Error ? error.message : 'Unknown error',
         };
       }
+    }
+  );
+
+  /**
+   * DELETE /cache/invalidate/:id - Invalidate cache for an issue
+   */
+  fastify.delete<{
+    Params: { id: string };
+  }>(
+    '/cache/invalidate/:id',
+    {
+      schema: {
+        params: z.object({ id: z.string().cuid() }),
+        response: {
+          200: z.object({
+            success: z.boolean(),
+            message: z.string(),
+          }),
+        },
+      },
+    },
+    async (request, reply) => {
+      const { id } = request.params;
+      await cacheService.invalidateIssue(id);
+
+      return {
+        success: true,
+        message: `Cache invalidated for issue ${id}`,
+      };
+    }
+  );
+
+  /**
+   * DELETE /cache/invalidate-project/:projectId - Invalidate cache for project issues
+   */
+  fastify.delete<{
+    Params: { projectId: string };
+  }>(
+    '/cache/invalidate-project/:projectId',
+    {
+      schema: {
+        params: z.object({ projectId: z.string().cuid() }),
+        response: {
+          200: z.object({
+            success: z.boolean(),
+            message: z.string(),
+          }),
+        },
+      },
+    },
+    async (request, reply) => {
+      const { projectId } = request.params;
+      await cacheService.invalidateProjectIssues(projectId);
+
+      return {
+        success: true,
+        message: `Cache invalidated for project ${projectId} issues`,
+      };
+    }
+  );
+
+  /**
+   * DELETE /cache/invalidate-all - Invalidate all issue caches
+   */
+  fastify.delete(
+    '/cache/invalidate-all',
+    {
+      schema: {
+        response: {
+          200: z.object({
+            success: z.boolean(),
+            message: z.string(),
+          }),
+        },
+      },
+    },
+    async (request, reply) => {
+      await cacheService.invalidateAll();
+
+      return {
+        success: true,
+        message: 'All issue caches invalidated',
+      };
+    }
+  );
+
+  /**
+   * GET /cache/stats - Get cache statistics
+   */
+  fastify.get(
+    '/cache/stats',
+    {
+      schema: {
+        response: {
+          200: z.object({
+            totalKeys: z.number(),
+            issueKeys: z.number(),
+            projectKeys: z.number(),
+            available: z.boolean(),
+          }),
+        },
+      },
+    },
+    async (request, reply) => {
+      const stats = await cacheService.getCacheStats();
+
+      return {
+        ...stats,
+        available: cacheService.isAvailable(),
+      };
     }
   );
 }
