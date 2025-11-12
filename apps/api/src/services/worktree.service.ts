@@ -11,6 +11,10 @@ import {
   getWorktreeValidationService,
   WorktreeValidationService,
 } from './worktree-validation.service';
+import {
+  getWorktreeSetupService,
+  type SetupConfig,
+} from './worktree-setup.service';
 import { worktreeRepository } from '../repositories/worktree.repository';
 import { WorktreeStatus } from '../types/worktree';
 
@@ -22,6 +26,8 @@ export interface WorktreeCreateOptions {
   customPath?: string;
   timeout?: number;
   skipValidation?: boolean;
+  skipSetup?: boolean;
+  setupConfig?: SetupConfig;
 }
 
 export interface WorktreeCreateResult {
@@ -69,6 +75,8 @@ export class WorktreeService {
       customPath,
       timeout = 60000,
       skipValidation = false,
+      skipSetup = false,
+      setupConfig,
     } = options;
 
     try {
@@ -130,6 +138,18 @@ export class WorktreeService {
         branch,
         status: WorktreeStatus.ACTIVE,
       });
+
+      // 7. Run post-creation setup (unless skipped)
+      if (!skipSetup) {
+        const setupService = getWorktreeSetupService(this.projectRoot);
+        const setupResult = await setupService.executeSetup(worktreePath, setupConfig);
+
+        if (!setupResult.success) {
+          console.warn('Post-creation setup failed:', setupResult.error);
+          // Don't fail the entire operation, but log the warning
+          // The worktree is still usable
+        }
+      }
 
       return {
         success: true,
