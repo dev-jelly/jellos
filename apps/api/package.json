@@ -21,10 +21,12 @@
     "fastify": "^5.2.2",
     "fastify-plugin": "^5.1.0",
     "fastify-type-provider-zod": "^6.1.0",
+    "js-yaml": "^4.1.0",
     "zod": "^4.1.12"
   },
   "devDependencies": {
     "@jellos/eslint-config": "workspace:*",
+    "@types/js-yaml": "^4.0.9",
     "@types/node": "^22.13.5",
     "eslint": "^9.22.0",
     "prettier": "^3.4.2",
