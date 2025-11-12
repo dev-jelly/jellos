@@ -3,6 +3,7 @@
  */
 
 import { spawn, type SpawnOptions } from 'child_process';
+import { getPermissionErrorHelp } from './server-permissions';
 
 /**
  * Result of a successful process execution
@@ -52,6 +53,21 @@ export class ProcessBufferError extends Error {
   ) {
     super(message);
     this.name = 'ProcessBufferError';
+  }
+}
+
+/**
+ * Error thrown when Node.js Permission Model denies access
+ */
+export class PermissionDeniedError extends Error {
+  constructor(
+    message: string,
+    public readonly command: string,
+    public readonly operation: string,
+    public readonly helpText: string
+  ) {
+    super(message);
+    this.name = 'PermissionDeniedError';
   }
 }
 
@@ -173,6 +189,24 @@ export function safeSpawn(
     // Handle spawn errors
     child.on('error', (error) => {
       clearTimeout(timeoutId);
+
+      // Check for permission denied errors
+      const errorMessage = error.message.toLowerCase();
+      if (
+        errorMessage.includes('err_access_denied') ||
+        errorMessage.includes('permission denied') ||
+        (error as any).code === 'ERR_ACCESS_DENIED'
+      ) {
+        const permissionError = new PermissionDeniedError(
+          `Permission denied when spawning '${command}'`,
+          command,
+          'child_process.spawn',
+          getPermissionErrorHelp('child_process.spawn', command)
+        );
+        reject(permissionError);
+        return;
+      }
+
       reject(error);
     });
 
