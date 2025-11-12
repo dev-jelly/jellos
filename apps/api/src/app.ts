@@ -9,6 +9,7 @@ import {
 import { prisma } from './lib/db';
 import { healthRoutes } from './routes/health.routes';
 import { projectRoutes } from './routes/project.routes';
+import { linearSyncRoutes } from './routes/linear-sync.routes';
 
 export async function buildApp() {
   const app = Fastify({
@@ -36,6 +37,7 @@ export async function buildApp() {
   // Register routes
   await app.register(healthRoutes, { prefix: '/health' });
   await app.register(projectRoutes, { prefix: '/api/projects' });
+  await app.register(linearSyncRoutes, { prefix: '/api/linear' });
 
   // Global error handler
   app.setErrorHandler((error: FastifyError, request, reply) => {
