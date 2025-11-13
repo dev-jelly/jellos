@@ -13,6 +13,35 @@ export interface SystemEvents {
   'issue.updated': { issueId: string; projectId: string };
   'agent.started': { agentId: string; projectId: string };
   'agent.stopped': { agentId: string; projectId: string };
+
+  // Circuit breaker events
+  'circuit-breaker.opened': {
+    service: string;
+    failureCount: number;
+    timestamp: Date;
+  };
+  'circuit-breaker.half-open': {
+    service: string;
+    timestamp: Date;
+  };
+  'circuit-breaker.closed': {
+    service: string;
+    successCount: number;
+    timestamp: Date;
+  };
+
+  // System pressure events
+  'system.pressure.high': {
+    type: 'memory' | 'eventLoop' | 'heap';
+    value: number;
+    threshold: number;
+    timestamp: Date;
+  };
+  'system.pressure.normal': {
+    type: 'memory' | 'eventLoop' | 'heap';
+    value: number;
+    timestamp: Date;
+  };
 }
 
 /**

@@ -1,0 +1,68 @@
+# Example .jellos.yml configuration file
+# This file demonstrates all available configuration options
+
+# Agent discovery configuration
+agents:
+  - id: claude-code
+    name: Claude Code
+    command: claude
+    enabled: true
+    version: ">=1.0.0"
+
+  - id: playwright
+    name: Playwright
+    command: npx
+    args: ["playwright"]
+    enabled: true
+
+# External tool link templates
+# Use template variables like {baseUrl}, {number}, {sha}, {branch}, etc.
+links:
+  # GitHub integration
+  github:
+    baseUrl: "https://github.com/your-org/your-repo"
+    prTemplate: "{baseUrl}/pull/{number}"
+    commitTemplate: "{baseUrl}/commit/{sha}"
+    fileTemplate: "{baseUrl}/blob/{branch}/{path}"
+    blameTemplate: "{baseUrl}/blame/{branch}/{path}"
+    diffTemplate: "{baseUrl}/compare/{base}...{head}"
+
+  # Linear integration
+  linear:
+    baseUrl: "https://linear.app/your-workspace"
+    issueTemplate: "{baseUrl}/issue/{id}"
+    workspaceUrl: "https://linear.app/your-workspace"
+
+  # Jenkins CI/CD
+  jenkins:
+    baseUrl: "https://jenkins.example.com"
+    pipelineTemplate: "{baseUrl}/job/{jobName}/{buildNumber}"
+    jobTemplate: "{baseUrl}/job/{jobName}"
+
+  # GitHub Actions
+  githubActions:
+    baseUrl: "https://github.com/your-org/your-repo"
+    pipelineTemplate: "{baseUrl}/actions/runs/{runId}"
+    jobTemplate: "{baseUrl}/actions/workflows/{workflowId}"
+
+  # Deployment environments
+  deployment:
+    deploymentTemplate: "https://preview-{branch}.example.com"
+
+# Worktree post-creation hooks
+worktree:
+  # Commands to run after worktree creation
+  post-create:
+    - "pnpm install"
+    - "cp .env.example .env"
+
+  # Environment files to copy from main worktree
+  env-files:
+    - ".env.local"
+    - ".env.development"
+    - ".env"
+
+  # Git hooks to setup
+  git-hooks:
+    - "pre-commit"
+    - "commit-msg"

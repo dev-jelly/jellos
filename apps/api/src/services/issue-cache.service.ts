@@ -1,6 +1,7 @@
 /**
  * Issue Cache Service
  * Implements SWR (stale-while-revalidate) caching for enriched issues
+ * Task 14.6: Enhanced with fallback strategy for Redis unavailability
  */
 
 import { getRedisClient } from '../lib/cache';
@@ -14,6 +15,8 @@ export interface IssueCacheConfig {
   ttl: number; // Time to live in seconds
   staleTtl: number; // Time before data is considered stale in seconds
   enableBackgroundRevalidation: boolean;
+  enableInMemoryFallback: boolean; // Fallback to in-memory cache when Redis unavailable
+  inMemoryMaxSize: number; // Max items in memory cache
 }
 
 /**
@@ -37,21 +40,26 @@ const CacheKeys = {
 };
 
 /**
- * Issue cache service with SWR pattern
+ * Issue cache service with SWR pattern and fallback strategy
  */
 export class IssueCacheService {
   private redis: Redis | null = null;
   private config: IssueCacheConfig;
   private revalidationQueue: Set<string>;
+  private inMemoryCache: Map<string, CachedIssue>; // Fallback cache
+  private degradedMode: boolean = false; // Flag when Redis is unavailable
 
   constructor(config?: Partial<IssueCacheConfig>) {
     this.config = {
       ttl: 300, // 5 minutes default
       staleTtl: 60, // 1 minute before considered stale
       enableBackgroundRevalidation: true,
+      enableInMemoryFallback: true,
+      inMemoryMaxSize: 100, // Default: 100 items
       ...config,
     };
     this.revalidationQueue = new Set();
+    this.inMemoryCache = new Map();
     this.initializeRedis();
   }
 
@@ -61,9 +69,11 @@ export class IssueCacheService {
   private initializeRedis(): void {
     try {
       this.redis = getRedisClient();
+      this.degradedMode = false;
     } catch (error) {
-      console.warn('Redis not available for issue caching:', error);
+      console.warn('Redis not available for issue caching, using in-memory fallback:', error);
       this.redis = null;
+      this.degradedMode = true;
     }
   }
 
@@ -75,7 +85,15 @@ export class IssueCacheService {
   }
 
   /**
+   * Check if running in degraded mode (fallback cache)
+   */
+  public isDegradedMode(): boolean {
+    return this.degradedMode;
+  }
+
+  /**
    * Get cached enriched issue with SWR pattern
+   * Task 14.6: Enhanced with fallback to in-memory cache
    */
   public async getEnrichedIssue(
     issueId: string,
@@ -85,49 +103,73 @@ export class IssueCacheService {
     cached: boolean;
     stale: boolean;
     revalidating: boolean;
+    degraded?: boolean;
   }> {
-    if (!this.isAvailable()) {
-      return { data: null, cached: false, stale: false, revalidating: false };
-    }
-
     const key = CacheKeys.issue(issueId);
-    const cached = await this.getCachedData<CachedIssue>(key);
 
-    if (!cached) {
-      return { data: null, cached: false, stale: false, revalidating: false };
+    // Try Redis first
+    if (this.isAvailable()) {
+      try {
+        const cached = await this.getCachedData<CachedIssue>(key);
+
+        if (cached) {
+          const now = Date.now();
+          const isStale = now >= cached.staleAt;
+          const isRevalidating = this.revalidationQueue.has(issueId);
+
+          // Trigger background revalidation if needed
+          if (
+            isStale &&
+            !isRevalidating &&
+            this.config.enableBackgroundRevalidation &&
+            revalidateFn
+          ) {
+            this.triggerBackgroundRevalidation(issueId, revalidateFn);
+          }
+
+          return {
+            data: cached.data,
+            cached: true,
+            stale: isStale,
+            revalidating: isRevalidating,
+          };
+        }
+      } catch (error) {
+        console.error('Redis error, falling back to in-memory cache:', error);
+        this.degradedMode = true;
+      }
     }
 
-    const now = Date.now();
-    const isStale = now >= cached.staleAt;
-    const isRevalidating = this.revalidationQueue.has(issueId);
+    // Fallback to in-memory cache
+    if (this.config.enableInMemoryFallback) {
+      const cached = this.inMemoryCache.get(key);
 
-    // If data is stale and revalidation is enabled, trigger background refresh
-    if (
-      isStale &&
-      !isRevalidating &&
-      this.config.enableBackgroundRevalidation &&
-      revalidateFn
-    ) {
-      this.triggerBackgroundRevalidation(issueId, revalidateFn);
+      if (cached) {
+        const now = Date.now();
+        const isStale = now >= cached.staleAt;
+
+        return {
+          data: cached.data,
+          cached: true,
+          stale: isStale,
+          revalidating: false,
+          degraded: true, // Indicate we're using fallback
+        };
+      }
     }
 
-    return {
-      data: cached.data,
-      cached: true,
-      stale: isStale,
-      revalidating: isRevalidating,
-    };
+    // No cache hit
+    return { data: null, cached: false, stale: false, revalidating: false };
   }
 
   /**
    * Set cached enriched issue
+   * Task 14.6: Enhanced to also update in-memory fallback
    */
   public async setEnrichedIssue(
     issueId: string,
     data: EnrichedIssue
   ): Promise<void> {
-    if (!this.isAvailable()) return;
-
     const now = Date.now();
     const cached: CachedIssue = {
       data,
@@ -137,7 +179,36 @@ export class IssueCacheService {
     };
 
     const key = CacheKeys.issue(issueId);
-    await this.setCachedData(key, cached, this.config.ttl);
+
+    // Try to set in Redis
+    if (this.isAvailable()) {
+      try {
+        await this.setCachedData(key, cached, this.config.ttl);
+      } catch (error) {
+        console.error('Redis error during setEnrichedIssue:', error);
+        this.degradedMode = true;
+      }
+    }
+
+    // Always update in-memory cache if fallback is enabled
+    if (this.config.enableInMemoryFallback) {
+      this.setInMemoryCache(key, cached);
+    }
+  }
+
+  /**
+   * Set data in in-memory cache with LRU eviction
+   */
+  private setInMemoryCache(key: string, data: CachedIssue): void {
+    // Enforce max size (simple LRU: remove oldest entry)
+    if (this.inMemoryCache.size >= this.config.inMemoryMaxSize) {
+      const firstKey = this.inMemoryCache.keys().next().value;
+      if (firstKey) {
+        this.inMemoryCache.delete(firstKey);
+      }
+    }
+
+    this.inMemoryCache.set(key, data);
   }
 
   /**

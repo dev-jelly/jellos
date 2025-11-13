@@ -1,0 +1,8 @@
+# Invalid configuration - missing required baseUrl
+links:
+  github:
+    # Missing baseUrl - this is required
+    prTemplate: "/pull/{number}"
+
+  linear:
+    issueTemplate: "/issue/{id}"

@@ -12,6 +12,7 @@ import {
   createIssueSchema,
   updateIssueSchema,
 } from '../types/issue';
+import { eventBus } from '../lib/event-bus';
 
 /**
  * Query schemas
@@ -202,6 +203,12 @@ export async function issueRoutes(fastify: FastifyInstance) {
 
         // Invalidate cache after update
         await cacheService.invalidateIssue(id);
+
+        // Emit event for real-time updates (Task 11.6)
+        eventBus.emitEvent('issue.updated', {
+          issueId: issue.id,
+          projectId: issue.projectId,
+        });
 
         return { data: issue };
       } catch (error) {
@@ -491,6 +498,99 @@ export async function issueRoutes(fastify: FastifyInstance) {
         ...stats,
         available: cacheService.isAvailable(),
       };
+    }
+  );
+
+  /**
+   * GET /stream - Server-Sent Events stream for real-time issue updates
+   * Task 11.6: Real-time synchronization via SSE
+   *
+   * Query parameters:
+   * - projectId: Optional project ID to filter events
+   *
+   * Events emitted:
+   * - issue-updated: When an issue is updated
+   * - heartbeat: Every 30 seconds to keep connection alive
+   */
+  fastify.get<{
+    Querystring: {
+      projectId?: string;
+    };
+  }>(
+    '/stream',
+    {
+      schema: {
+        querystring: z.object({
+          projectId: z.string().cuid().optional(),
+        }),
+      },
+    },
+    async (request, reply) => {
+      const { projectId } = request.query;
+
+      // Set SSE headers
+      reply.raw.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache, no-transform',
+        'Connection': 'keep-alive',
+        'X-Accel-Buffering': 'no',
+      });
+
+      // Send initial connection message
+      reply.raw.write(`data: ${JSON.stringify({ type: 'connected', timestamp: new Date().toISOString() })}\n\n`);
+
+      // Event handler for issue updates
+      const handleIssueUpdate = async (payload: { issueId: string; projectId: string }) => {
+        // Filter by project if specified
+        if (projectId && payload.projectId !== projectId) {
+          return;
+        }
+
+        try {
+          // Fetch the updated issue to send full data
+          const issue = await issueRepository.findById(payload.issueId);
+          if (!issue) {
+            return;
+          }
+
+          const eventData = {
+            type: 'issue-updated',
+            timestamp: new Date().toISOString(),
+            data: issue,
+          };
+
+          reply.raw.write(`event: issue-updated\n`);
+          reply.raw.write(`data: ${JSON.stringify(eventData)}\n\n`);
+        } catch (error) {
+          fastify.log.error('Error sending SSE update:', error);
+        }
+      };
+
+      // Subscribe to issue update events
+      eventBus.onEvent('issue.updated', handleIssueUpdate);
+
+      // Heartbeat to keep connection alive
+      const heartbeatInterval = setInterval(() => {
+        try {
+          reply.raw.write(`: heartbeat ${new Date().toISOString()}\n\n`);
+        } catch (error) {
+          // Client disconnected
+          clearInterval(heartbeatInterval);
+        }
+      }, 30000); // 30 seconds
+
+      // Cleanup on client disconnect
+      request.raw.on('close', () => {
+        eventBus.offEvent('issue.updated', handleIssueUpdate);
+        clearInterval(heartbeatInterval);
+        fastify.log.info('SSE client disconnected');
+      });
+
+      // Keep the connection open
+      await new Promise((resolve) => {
+        request.raw.on('close', resolve);
+        request.raw.on('end', resolve);
+      });
     }
   );
 }

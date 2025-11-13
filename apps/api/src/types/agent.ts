@@ -38,10 +38,44 @@ export interface AgentMetadata {
 }
 
 /**
+ * Link template configuration for external tools
+ */
+export interface LinkTemplate {
+  baseUrl: string;
+  prTemplate?: string;
+  commitTemplate?: string;
+  fileTemplate?: string;
+  blameTemplate?: string;
+  diffTemplate?: string;
+  issueTemplate?: string;
+  workspaceUrl?: string;
+  pipelineTemplate?: string;
+  jobTemplate?: string;
+  deploymentTemplate?: string;
+}
+
+/**
+ * Links section configuration for external tool URLs
+ */
+export interface LinksConfig {
+  github?: LinkTemplate;
+  linear?: LinkTemplate;
+  jenkins?: LinkTemplate;
+  githubActions?: LinkTemplate;
+  deployment?: LinkTemplate;
+}
+
+/**
  * .jellos.yml file structure
  */
 export interface JellosConfig {
   agents?: AgentConfigEntry[];
+  links?: LinksConfig;
+  worktree?: {
+    'post-create'?: string[];
+    'env-files'?: string[];
+    'git-hooks'?: string[];
+  };
   // Other config options can be added here
 }
 

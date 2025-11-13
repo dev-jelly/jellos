@@ -1,5 +1,4 @@
 import type { FastifyPluginAsync } from 'fastify';
-import fp from 'fastify-plugin';
 import { type ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 
@@ -87,6 +86,29 @@ const agentListResponseSchema = z.object({
   projectId: z.string(),
   totalAgents: z.number(),
 });
+
+// Links configuration schemas
+const linkTemplateSchema = z.object({
+  baseUrl: z.string(),
+  prTemplate: z.string().optional(),
+  commitTemplate: z.string().optional(),
+  fileTemplate: z.string().optional(),
+  blameTemplate: z.string().optional(),
+  diffTemplate: z.string().optional(),
+  issueTemplate: z.string().optional(),
+  workspaceUrl: z.string().optional(),
+  pipelineTemplate: z.string().optional(),
+  jobTemplate: z.string().optional(),
+  deploymentTemplate: z.string().optional(),
+});
+
+const linksConfigResponseSchema = z.object({
+  github: linkTemplateSchema.optional(),
+  linear: linkTemplateSchema.optional(),
+  jenkins: linkTemplateSchema.optional(),
+  githubActions: linkTemplateSchema.optional(),
+  deployment: linkTemplateSchema.optional(),
+}).nullable();
 
 const projectRoutes: FastifyPluginAsync = async (fastify) => {
   const projectService = new ProjectService();
@@ -367,7 +389,38 @@ const projectRoutes: FastifyPluginAsync = async (fastify) => {
       }
     }
   );
+
+  // Get links configuration for project
+  fastify.get(
+    '/:id/links',
+    {
+      schema: {
+        params: projectIdSchema,
+        response: {
+          200: linksConfigResponseSchema,
+          404: z.object({
+            error: z.string(),
+            message: z.string(),
+          }),
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        const { id } = request.params as any;
+        const linksConfig = await projectService.getProjectLinksConfig(id);
+        return linksConfig;
+      } catch (error) {
+        if (error instanceof ProjectNotFoundError) {
+          return reply.code(404).send({
+            error: 'NotFound',
+            message: error.message,
+          });
+        }
+        throw error;
+      }
+    }
+  );
 };
 
-export default fp(projectRoutes);
-export { projectRoutes };
+export default projectRoutes;

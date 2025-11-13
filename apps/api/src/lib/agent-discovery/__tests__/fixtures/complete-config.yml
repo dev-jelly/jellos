@@ -1,0 +1,40 @@
+# Complete configuration example with all sections
+agents:
+  - id: claude-code
+    name: Claude Code
+    command: claude
+    enabled: true
+
+links:
+  github:
+    baseUrl: "https://github.com/your-org/your-repo"
+    prTemplate: "{baseUrl}/pull/{number}"
+    commitTemplate: "{baseUrl}/commit/{sha}"
+    fileTemplate: "{baseUrl}/blob/{branch}/{path}"
+    blameTemplate: "{baseUrl}/blame/{branch}/{path}"
+    diffTemplate: "{baseUrl}/compare/{base}...{head}"
+
+  linear:
+    baseUrl: "https://linear.app/your-workspace"
+    issueTemplate: "{baseUrl}/issue/{id}"
+    workspaceUrl: "https://linear.app/your-workspace"
+
+  jenkins:
+    baseUrl: "https://jenkins.example.com"
+    pipelineTemplate: "{baseUrl}/job/{jobName}/{buildNumber}"
+
+  githubActions:
+    baseUrl: "https://github.com/your-org/your-repo"
+    pipelineTemplate: "{baseUrl}/actions/runs/{runId}"
+
+  deployment:
+    deploymentTemplate: "https://preview-{branch}.example.com"
+
+worktree:
+  post-create:
+    - "pnpm install"
+  env-files:
+    - ".env.local"
+    - ".env"
+  git-hooks:
+    - "pre-commit"

@@ -43,10 +43,11 @@ model Issue {
   updatedAt   DateTime @updatedAt
 
   // Relations
-  project       Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project       Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
   worktrees     Worktree[]
   externalLinks ExternalIssueLink[]
   comments      IssueComment[]
+  stateHistory  IssueStateHistory[]
 
   @@index([projectId])
   @@index([status])
@@ -138,7 +139,8 @@ model AgentExecution {
   updatedAt      DateTime  @updatedAt
 
   // Relations
-  agent CodeAgentRuntime @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  agent        CodeAgentRuntime        @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  stateHistory ExecutionStateHistory[]
 
   @@index([agentId])
   @@index([status])
@@ -180,6 +182,164 @@ model IssueComment {
   @@map("issue_comments")
 }
 
+/// IssuePRMapping tracks the relationship between issues and pull requests
+model IssuePRMapping {
+  id         String   @id @default(cuid())
+  issueId    String
+  projectId  String
+  prNumber   Int      // GitHub PR number
+  prUrl      String   // Full URL to the PR
+  branchName String   // Branch associated with the PR
+  state      String   @default("open") // open, closed, merged
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  closedAt   DateTime? // When the PR was closed/merged
+
+  @@unique([issueId, prNumber]) // Prevent duplicate mappings for same issue-PR pair
+  @@unique([projectId, branchName, state]) // Prevent multiple open PRs from same branch
+  @@index([issueId])
+  @@index([projectId])
+  @@index([branchName])
+  @@index([state])
+  @@map("issue_pr_mappings")
+}
+
+// ============================================================================
+// State History Models (Task 12.2 - FSM State Tracking)
+// ============================================================================
+
+/// IssueStateHistory tracks state transitions for issues in the FSM
+/// Extended with event sourcing capabilities (Task 12.5)
+model IssueStateHistory {
+  id             String   @id @default(cuid())
+  issueId        String
+  fromState      String? // null for initial state creation
+  toState        String
+  event          String // The event that triggered this transition (e.g., "start_work", "submit_for_review")
+  context        String? // JSON serialized context data at time of transition
+  triggeredBy    String? // User ID or system identifier that triggered the transition
+  reason         String? // Optional reason for transition (e.g., blocking reason, rejection reason)
+  metadata       String? // JSON metadata for additional context
+  timestamp      DateTime @default(now())
+
+  // Event Sourcing fields (Task 12.5)
+  eventId        String?  @unique // Unique event ID for idempotency
+  version        String   @default("1.0.0") // Event schema version
+  correlationId  String? // Correlation ID for tracing
+  causationId    String? // Causation ID for event chains
+  sequenceNumber Int? // Sequence number for ordering guarantees
+  persistedAt    DateTime @default(now()) // When event was persisted
+
+  // Relations
+  issue Issue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+
+  @@index([issueId])
+  @@index([timestamp])
+  @@index([toState])
+  @@index([issueId, timestamp])
+  @@index([eventId])
+  @@index([correlationId])
+  @@index([issueId, sequenceNumber])
+  @@map("issue_state_history")
+}
+
+/// ExecutionStateHistory tracks state transitions for agent executions
+/// Extended with event sourcing capabilities (Task 12.5)
+model ExecutionStateHistory {
+  id             String   @id @default(cuid())
+  executionId    String
+  fromState      String? // null for initial state
+  toState        String
+  event          String // The event that triggered this transition (e.g., "execute", "complete", "fail")
+  context        String? // JSON serialized context data
+  reason         String? // Optional reason (e.g., error message, timeout reason)
+  metadata       String? // JSON metadata for additional context
+  timestamp      DateTime @default(now())
+
+  // Event Sourcing fields (Task 12.5)
+  eventId        String?  @unique // Unique event ID for idempotency
+  version        String   @default("1.0.0") // Event schema version
+  correlationId  String? // Correlation ID for tracing
+  causationId    String? // Causation ID for event chains
+  sequenceNumber Int? // Sequence number for ordering guarantees
+  persistedAt    DateTime @default(now()) // When event was persisted
+
+  // Relations
+  execution AgentExecution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+
+  @@index([executionId])
+  @@index([timestamp])
+  @@index([toState])
+  @@index([executionId, timestamp])
+  @@index([eventId])
+  @@index([correlationId])
+  @@index([executionId, sequenceNumber])
+  @@map("execution_state_history")
+}
+
+// ============================================================================
+// Event Sourcing Snapshots (Task 12.5)
+// ============================================================================
+
+/// IssueStateSnapshot for performance optimization in event replay
+model IssueStateSnapshot {
+  id                 String   @id @default(cuid())
+  issueId            String
+  state              String // JSON serialized current state
+  lastSequenceNumber Int // Last event sequence included in snapshot
+  version            String   @default("1.0.0") // Event schema version
+  metadata           String? // JSON metadata
+  createdAt          DateTime @default(now())
+
+  @@index([issueId])
+  @@index([issueId, lastSequenceNumber])
+  @@map("issue_state_snapshots")
+}
+
+/// ExecutionStateSnapshot for performance optimization in event replay
+model ExecutionStateSnapshot {
+  id                 String   @id @default(cuid())
+  executionId        String
+  state              String // JSON serialized current state
+  lastSequenceNumber Int // Last event sequence included in snapshot
+  version            String   @default("1.0.0") // Event schema version
+  metadata           String? // JSON metadata
+  createdAt          DateTime @default(now())
+
+  @@index([executionId])
+  @@index([executionId, lastSequenceNumber])
+  @@map("execution_state_snapshots")
+}
+
+// ============================================================================
+// Saga Pattern Tables (Task 12.6 - Compensating Transactions)
+// ============================================================================
+
+/// SagaInstance tracks saga execution with compensating transactions
+model SagaInstance {
+  id                String    @id @default(cuid())
+  type              String // SagaWorkflowType: ISSUE_TO_EXECUTION, EXECUTION_TO_PR, etc.
+  status            String // SagaStatus: PENDING, RUNNING, COMPLETED, COMPENSATING, COMPENSATED, FAILED
+  patternType       String // SagaPatternType: ORCHESTRATION, CHOREOGRAPHY
+  context           String // JSON serialized SagaContext
+  stepStates        String // JSON serialized Map<string, SagaStepState>
+  completedSteps    String // JSON array of completed step IDs
+  failedSteps       String // JSON array of failed step IDs
+  compensatedSteps  String // JSON array of compensated step IDs
+  error             String? // JSON serialized error information
+  metadata          String? // JSON metadata
+  startedAt         DateTime  @default(now())
+  completedAt       DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([type])
+  @@index([status])
+  @@index([startedAt])
+  @@index([type, status])
+  @@map("saga_instances")
+}
+
 // ============================================================================
 // Enums (SQLite doesn't support native enums - use String with validation)
 // ============================================================================
@@ -187,3 +347,9 @@ model IssueComment {
 // IssueStatus: TODO | IN_PROGRESS | IN_REVIEW | MERGED | DEPLOYED | REJECTED | CANCELED
 // IssuePriority: LOW | MEDIUM | HIGH | URGENT
 // WorktreeStatus: ACTIVE | STALE | REMOVED
+// PRState: open | closed | merged
+// ExecutionStatus: PENDING | RUNNING | COMPLETED | FAILED | TIMEOUT | CANCELLED
+// SagaStatus: PENDING | RUNNING | COMPLETED | COMPENSATING | COMPENSATED | FAILED
+// SagaStepStatus: PENDING | RUNNING | COMPLETED | FAILED | COMPENSATING | COMPENSATED | SKIPPED
+// SagaPatternType: ORCHESTRATION | CHOREOGRAPHY
+// SagaWorkflowType: ISSUE_TO_EXECUTION | EXECUTION_TO_PR | PR_TO_MERGE | FULL_ISSUE_LIFECYCLE | WORKTREE_SETUP | CUSTOM

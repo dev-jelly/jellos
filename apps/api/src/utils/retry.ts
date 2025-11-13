@@ -3,6 +3,8 @@
  * Exponential backoff retry logic with jitter and circuit breaker
  */
 
+import { eventBus } from '../lib/event-bus';
+
 export interface RetryOptions {
   maxRetries?: number; // Default: 3
   initialDelayMs?: number; // Default: 1000 (1 second)
@@ -14,6 +16,7 @@ export interface RetryOptions {
 export interface CircuitBreakerOptions {
   failureThreshold?: number; // Default: 5 consecutive failures
   resetTimeoutMs?: number; // Default: 60000 (1 minute)
+  serviceName?: string; // Service name for event tracking
 }
 
 export enum CircuitBreakerState {
@@ -30,12 +33,15 @@ export class CircuitBreaker {
   private failureCount = 0;
   private lastFailureTime: number | null = null;
   private successCount = 0;
+  private serviceName: string;
 
   constructor(private options: CircuitBreakerOptions = {}) {
     this.options = {
       failureThreshold: options.failureThreshold || 5,
       resetTimeoutMs: options.resetTimeoutMs || 60000,
+      serviceName: options.serviceName || 'unknown',
     };
+    this.serviceName = this.options.serviceName!;
   }
 
   /**
@@ -52,8 +58,7 @@ export class CircuitBreaker {
         this.lastFailureTime &&
         Date.now() - this.lastFailureTime >= this.options.resetTimeoutMs!
       ) {
-        this.state = CircuitBreakerState.HALF_OPEN;
-        this.successCount = 0;
+        this.transitionToHalfOpen();
         return true;
       }
       return false;
@@ -76,8 +81,7 @@ export class CircuitBreaker {
       this.successCount++;
       // After 2 successes in half-open state, close the circuit
       if (this.successCount >= 2) {
-        this.state = CircuitBreakerState.CLOSED;
-        this.successCount = 0;
+        this.transitionToClosed();
       }
     }
   }
@@ -91,9 +95,9 @@ export class CircuitBreaker {
 
     if (this.state === CircuitBreakerState.HALF_OPEN) {
       // Immediately open circuit on failure in half-open state
-      this.state = CircuitBreakerState.OPEN;
+      this.transitionToOpen();
     } else if (this.failureCount >= this.options.failureThreshold!) {
-      this.state = CircuitBreakerState.OPEN;
+      this.transitionToOpen();
     }
   }
 
@@ -112,6 +116,49 @@ export class CircuitBreaker {
     this.failureCount = 0;
     this.successCount = 0;
     this.lastFailureTime = null;
+  }
+
+  /**
+   * Transition to OPEN state and emit event
+   */
+  private transitionToOpen(): void {
+    if (this.state !== CircuitBreakerState.OPEN) {
+      this.state = CircuitBreakerState.OPEN;
+      eventBus.emitEvent('circuit-breaker.opened', {
+        service: this.serviceName,
+        failureCount: this.failureCount,
+        timestamp: new Date(),
+      });
+    }
+  }
+
+  /**
+   * Transition to HALF_OPEN state and emit event
+   */
+  private transitionToHalfOpen(): void {
+    if (this.state !== CircuitBreakerState.HALF_OPEN) {
+      this.state = CircuitBreakerState.HALF_OPEN;
+      this.successCount = 0;
+      eventBus.emitEvent('circuit-breaker.half-open', {
+        service: this.serviceName,
+        timestamp: new Date(),
+      });
+    }
+  }
+
+  /**
+   * Transition to CLOSED state and emit event
+   */
+  private transitionToClosed(): void {
+    if (this.state !== CircuitBreakerState.CLOSED) {
+      this.state = CircuitBreakerState.CLOSED;
+      this.successCount = 0;
+      eventBus.emitEvent('circuit-breaker.closed', {
+        service: this.serviceName,
+        successCount: this.successCount,
+        timestamp: new Date(),
+      });
+    }
   }
 }
 

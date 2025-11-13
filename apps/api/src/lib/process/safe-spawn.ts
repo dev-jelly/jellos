@@ -4,6 +4,12 @@
 
 import { spawn, type SpawnOptions } from 'child_process';
 import { getPermissionErrorHelp } from './server-permissions';
+import {
+  validateChildProcessAllowed,
+  validatePathAccessOrThrow,
+} from './permission-validator';
+import { logPermissionViolation, PermissionViolationError } from './permission-logger';
+import { getPermissionConfig } from './permission-profiles';
 
 /**
  * Result of a successful process execution
@@ -87,6 +93,26 @@ export function safeSpawn(
     const timeout = options.timeout ?? DEFAULT_TIMEOUT;
     const maxBuffer = options.maxBuffer ?? DEFAULT_MAX_BUFFER;
     const killSignal = options.killSignal ?? DEFAULT_KILL_SIGNAL;
+
+    // Validate permissions before spawning
+    try {
+      const config = getPermissionConfig();
+
+      // Validate child process permission
+      validateChildProcessAllowed(config);
+
+      // Validate cwd path if specified
+      if (options.cwd) {
+        validatePathAccessOrThrow(options.cwd, 'read', config);
+      }
+    } catch (error) {
+      // Log permission violation
+      if (error instanceof PermissionViolationError) {
+        logPermissionViolation(error);
+      }
+      reject(error);
+      return;
+    }
 
     // Build spawn options
     const spawnOptions: SpawnOptions = {

@@ -1,6 +1,7 @@
 'use client';
 
 import { EnrichedIssue } from '@/lib/api/issues';
+import { ExternalLinks } from '@/components/links/external-links';
 
 interface IssueCardProps {
   issue: EnrichedIssue;
@@ -139,6 +140,18 @@ export function IssueCard({ issue, onClick }: IssueCardProps) {
           )}
         </div>
       )}
+
+      {/* External Links */}
+      <div className="mt-3 pt-3 border-t">
+        <ExternalLinks
+          projectId={issue.projectId}
+          entityType="issue"
+          entityData={{
+            number: issue.id,
+            linearId: issue.linear?.identifier || '',
+          }}
+        />
+      </div>
     </div>
   );
 }

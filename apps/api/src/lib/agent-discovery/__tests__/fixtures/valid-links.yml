@@ -1,0 +1,11 @@
+# Minimal valid configuration with links section
+links:
+  github:
+    baseUrl: "https://github.com/org/repo"
+    prTemplate: "{baseUrl}/pull/{number}"
+    commitTemplate: "{baseUrl}/commit/{sha}"
+    fileTemplate: "{baseUrl}/blob/{branch}/{path}"
+
+  linear:
+    baseUrl: "https://linear.app/workspace"
+    issueTemplate: "{baseUrl}/issue/{id}"

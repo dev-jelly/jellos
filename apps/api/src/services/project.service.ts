@@ -1,6 +1,8 @@
 import { type Project } from '../lib/db';
 import { eventBus } from '../lib/event-bus';
 import { ProjectRepository } from '../repositories/project.repository';
+import { loadProjectConfig, getLinksConfig } from '../lib/agent-discovery/config-parser';
+import type { LinksConfig } from '../types/agent';
 
 // Business logic errors
 export class ProjectAlreadyExistsError extends Error {
@@ -125,6 +127,15 @@ export class ProjectService {
   async projectExistsByPath(localPath: string): Promise<boolean> {
     const project = await this.repository.findByPath(localPath);
     return project !== null;
+  }
+
+  /**
+   * Get links configuration for a project
+   */
+  async getProjectLinksConfig(id: string): Promise<LinksConfig | null> {
+    const project = await this.getProjectById(id);
+    const config = await loadProjectConfig(project.localPath);
+    return getLinksConfig(config);
   }
 }
 

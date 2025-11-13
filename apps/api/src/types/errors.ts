@@ -5,6 +5,9 @@
 
 import { ErrorCategory } from '../utils/retry';
 
+// Re-export ErrorCategory for convenience
+export { ErrorCategory };
+
 /**
  * Base error class with recovery support
  */
@@ -12,6 +15,7 @@ export abstract class RecoverableError extends Error {
   public readonly category: ErrorCategory;
   public readonly recoverable: boolean;
   public readonly context?: Record<string, any>;
+  public readonly errorCause?: Error;
 
   constructor(
     message: string,
@@ -27,9 +31,7 @@ export abstract class RecoverableError extends Error {
     this.category = options.category;
     this.recoverable = options.recoverable;
     this.context = options.context;
-    if (options.cause) {
-      this.cause = options.cause;
-    }
+    this.errorCause = options.cause;
   }
 }
 

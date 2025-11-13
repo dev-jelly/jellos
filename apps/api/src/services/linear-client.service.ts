@@ -4,6 +4,14 @@
  */
 
 import { LinearClient } from '@linear/sdk';
+import {
+  withRetry,
+  withCircuitBreaker,
+  CircuitBreaker,
+  type RetryOptions,
+  type CircuitBreakerOptions,
+} from '../utils/retry';
+import { RecoverableError, ErrorCategory } from '../types/errors';
 import type {
   LinearIssueData,
   LinearQueryOptions,
@@ -12,17 +20,59 @@ import type {
 } from '../types/linear';
 
 /**
+ * Linear-specific error class
+ */
+export class LinearClientError extends RecoverableError {
+  constructor(
+    message: string,
+    options: {
+      operation?: string;
+      recoverable?: boolean;
+      cause?: Error;
+    } = {}
+  ) {
+    super(message, {
+      category: options.recoverable === false
+        ? ErrorCategory.NON_RETRYABLE
+        : ErrorCategory.RETRYABLE,
+      recoverable: options.recoverable ?? true,
+      context: {
+        operation: options.operation,
+      },
+      cause: options.cause,
+    });
+  }
+}
+
+/**
  * Linear API client service
  */
 export class LinearClientService {
   private client: LinearClient | null = null;
   private config: LinearConfig;
+  private circuitBreaker: CircuitBreaker;
+  private retryOptions: RetryOptions;
 
   constructor(config?: Partial<LinearConfig>) {
     this.config = {
       apiKey: config?.apiKey || process.env.LINEAR_API_KEY || '',
       timeout: config?.timeout || 10000, // 10 seconds default
       maxRetries: config?.maxRetries || 3,
+    };
+
+    // Initialize circuit breaker
+    this.circuitBreaker = new CircuitBreaker({
+      failureThreshold: 5,
+      resetTimeoutMs: 60000, // 1 minute
+      serviceName: 'linear',
+    });
+
+    // Configure retry options
+    this.retryOptions = {
+      maxRetries: this.config.maxRetries,
+      initialDelayMs: 1000,
+      maxDelayMs: 10000,
+      jitterMs: 500,
     };
 
     if (this.config.apiKey) {
@@ -60,9 +110,9 @@ export class LinearClientService {
     }
 
     try {
-      const issue = await this.retryOperation(async () => {
+      const issue = await this.executeWithRetry(async () => {
         return this.client!.issue(issueId);
-      });
+      }, 'getIssue');
 
       if (!issue) {
         return null;
@@ -87,7 +137,7 @@ export class LinearClientService {
     }
 
     try {
-      const issues = await this.retryOperation(async () => {
+      const issues = await this.executeWithRetry(async () => {
         return this.client!.issues({
           filter: {
             number: {
@@ -95,7 +145,7 @@ export class LinearClientService {
             },
           },
         });
-      });
+      }, 'getIssueByIdentifier');
 
       const nodes = await issues.nodes;
       if (nodes.length === 0) {
@@ -120,11 +170,11 @@ export class LinearClientService {
     }
 
     try {
-      const issues = await this.retryOperation(async () => {
+      const issues = await this.executeWithRetry(async () => {
         return this.client!.issueSearch({
           query,
         });
-      });
+      }, 'searchIssues');
 
       const nodes = await issues.nodes;
       return Promise.all(nodes.map((issue) => this.transformIssue(issue)));
@@ -145,9 +195,9 @@ export class LinearClientService {
     }
 
     try {
-      const issues = await this.retryOperation(async () => {
+      const issues = await this.executeWithRetry(async () => {
         return this.client!.issues(options);
-      });
+      }, 'listIssues');
 
       const nodes = await issues.nodes;
       return Promise.all(nodes.map((issue) => this.transformIssue(issue)));
@@ -207,38 +257,37 @@ export class LinearClientService {
   }
 
   /**
-   * Retry operation with exponential backoff
+   * Execute operation with retry and circuit breaker
    */
-  private async retryOperation<T>(
+  private async executeWithRetry<T>(
     operation: () => Promise<T>,
-    retries?: number
+    operationName: string
   ): Promise<T> {
-    const maxRetries = retries ?? this.config.maxRetries ?? 3;
-
-    try {
-      return await operation();
-    } catch (error) {
-      if (maxRetries > 0 && this.isRetryableError(error)) {
-        const delay = Math.min(
-          1000 * Math.pow(2, (this.config.maxRetries ?? 3) - maxRetries),
-          10000
-        );
-        await new Promise((resolve) => setTimeout(resolve, delay));
-        return this.retryOperation(operation, maxRetries - 1);
+    return withRetry(
+      () => withCircuitBreaker(operation, this.circuitBreaker),
+      {
+        ...this.retryOptions,
+        onRetry: async (attempt, error, delayMs) => {
+          console.log(
+            `Retrying Linear ${operationName} (attempt ${attempt}) after ${delayMs}ms due to: ${error.message}`
+          );
+        },
       }
-      throw error;
-    }
+    );
   }
 
   /**
-   * Check if error is retryable
+   * Get circuit breaker status
    */
-  private isRetryableError(error: any): boolean {
-    // Retry on network errors and rate limits
-    if (error.message?.includes('ECONNRESET')) return true;
-    if (error.message?.includes('ETIMEDOUT')) return true;
-    if (error.extensions?.code === 'RATE_LIMITED') return true;
-    return false;
+  public getCircuitBreakerState(): string {
+    return this.circuitBreaker.getState();
+  }
+
+  /**
+   * Reset circuit breaker (useful for testing or manual recovery)
+   */
+  public resetCircuitBreaker(): void {
+    this.circuitBreaker.reset();
   }
 
   /**
@@ -252,6 +301,27 @@ export class LinearClientService {
     };
 
     console.error(`Linear API error in ${operation}:`, linearError);
+  }
+
+  /**
+   * Get viewer (current authenticated user)
+   */
+  public async getViewer(): Promise<{ id: string; name: string; email?: string } | null> {
+    if (!this.isAvailable()) {
+      return null;
+    }
+
+    try {
+      const viewer = await this.client!.viewer;
+      return {
+        id: viewer.id,
+        name: viewer.name,
+        email: viewer.email || undefined,
+      };
+    } catch (error) {
+      this.handleError(error, 'getViewer');
+      return null;
+    }
   }
 
   /**
