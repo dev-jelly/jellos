@@ -1277,7 +1277,7 @@
         "testStrategy": "k6로 장애 주입(Linear 500, GitHub 타임아웃)을 시행해 회복 로직을 검증하고, 로깅/메트릭 노출 여부를 Loki/Prometheus에서 확인한다.",
         "priority": "medium",
         "dependencies": [],
-        "status": "in-progress",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -1368,9 +1368,10 @@
               5
             ],
             "details": "@sentry/node를 Fastify 훅과 통합해 처리되지 않은 예외와 거부된 프로미스를 자동 캡처한다. 에러 컨텍스트(사용자 ID, 프로젝트 ID, 요청 ID)를 포함시키고, 환경별 샘플링 레이트를 설정한다. OpenTelemetry SDK로 트레이스와 메트릭을 수집하고 Jaeger/Prometheus로 내보낸다. 성능 이상 감지를 위한 커스텀 메트릭(P95 레이턴시, 에러율)도 정의한다.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Sentry 테스트 모드로 이벤트 전송 확인, 트레이스 연속성 검증",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-13T13:59:33.530Z"
           },
           {
             "id": 8,
@@ -1382,15 +1383,16 @@
               7
             ],
             "details": "Prometheus 메트릭을 기반으로 Grafana 대시보드를 구성해 요청률, 에러율, 레이턴시, Circuit Breaker 상태, 캐시 히트율을 시각화한다. 대시보드는 IaC(Infrastructure as Code)로 관리하고 버전 관리한다. AlertManager와 통합해 Slack/PagerDuty로 알림을 전송하고, 에러율 5% 초과, P95 레이턴시 1초 초과, Circuit Breaker 오픈 등의 조건에 대한 알림 규칙을 정의한다.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "대시보드 렌더링 테스트, 알림 규칙 시뮬레이션",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-13T13:59:34.574Z"
           }
         ],
         "complexity": 7,
         "recommendedSubtasks": 8,
         "expansionPrompt": "Diagnostics Channel 설정, 구조화 로깅 시스템, Circuit Breaker 구현, 헬스체크 엔드포인트, 에러 분류 및 재시도, 캐시 폴백, 텔레메트리 통합, 모니터링 대시보드로 분할",
-        "updatedAt": "2025-11-13T13:50:32.208Z"
+        "updatedAt": "2025-11-13T13:59:34.574Z"
       },
       {
         "id": "15",
@@ -1486,9 +1488,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2025-11-13T13:50:33.299Z",
+      "lastModified": "2025-11-13T13:59:34.576Z",
       "taskCount": 15,
-      "completedCount": 14,
+      "completedCount": 15,
       "tags": [
         "master"
       ]
